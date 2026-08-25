@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Styling base — docs/styling.schema.json                             */
+/* Tema dark por padrão; aplique a classe .theme-light no <html>       */
+/* para trocar todos os tokens de superfície para o modo claro.        */
+/* ------------------------------------------------------------------ */
+
+@custom-variant light (&:where(.theme-light, .theme-light *));
+
+:root {
+  color-scheme: dark;
+
+  /* Superfícies e texto — dark (padrão) */
+  --app-background: #0b0f17;
+  --app-surface: #101726;
+  --app-surface-elevated: #1a2236;
+  --app-foreground: #e2e8f0;
+  --app-muted-foreground: #94a3b8;
+  --app-border: #1e293b;
+
+  /* Semânticas */
+  --app-primary: #2563eb;
+  --app-primary-foreground: #ffffff;
+  --app-success: #059669;
+  --app-warning: #d97706;
+  --app-danger: #e11d48;
+}
+
+.theme-light {
+  color-scheme: light;
+
+  --app-background: #f5f7fb;
+  --app-surface: #ffffff;
+  --app-surface-elevated: #eef2f7;
+  --app-foreground: #1f2937;
+  --app-muted-foreground: #64748b;
+  --app-border: #cbd5e1;
+
+  --app-primary: #2563eb;
+  --app-primary-foreground: #ffffff;
+  --app-success: #047857;
+  --app-warning: #b45309;
+  --app-danger: #be123c;
+}
+
+/* Cores mapeadas como utilitários bg-app-*, text-app-*, border-app-*.
+   `inline` faz o utilitário referenciar a variável, então a troca de
+   tema via .theme-light reflete automaticamente em todos os usos. */
+@theme inline {
+  --color-app-background: var(--app-background);
+  --color-app-surface: var(--app-surface);
+  --color-app-surface-elevated: var(--app-surface-elevated);
+  --color-app-foreground: var(--app-foreground);
+  --color-app-muted-foreground: var(--app-muted-foreground);
+  --color-app-border: var(--app-border);
+  --color-app-primary: var(--app-primary);
+  --color-app-primary-foreground: var(--app-primary-foreground);
+  --color-app-success: var(--app-success);
+  --color-app-warning: var(--app-warning);
+  --color-app-danger: var(--app-danger);
+}
+
+/* Forma, efeitos e tipografia — tokens fixos do schema */
+@theme {
+  --radius-app-sm: 6px;
+  --radius-app-md: 8px;
+  --radius-app-lg: 12px;
+  --radius-app-pill: 999px;
+
+  --shadow-app-elevated: 0 24px 70px rgba(15, 23, 42, 0.18);
+  --blur-app-overlay: 18px;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+@layer base {
+  html {
+    @apply h-full antialiased;
+  }
+
+  body {
+    @apply min-h-screen bg-app-background font-sans text-app-foreground antialiased;
+    font-size: 14px;
+    letter-spacing: 0;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Borda padrão derivada do tema */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--app-border);
+  }
+
+  /* Anel de foco: 2px solid primary com offset de 2px (válido nos dois temas) */
+  :focus-visible {
+    outline: 2px solid var(--app-primary);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--app-primary) 32%, transparent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--app-surface-elevated);
+    border-radius: var(--radius-app-pill);
+    border: 2px solid var(--app-background);
+  }
+}
