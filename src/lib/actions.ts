@@ -14,6 +14,7 @@ import {
   pendencias,
   propostas,
 } from "@/db/schema";
+import { requireServerActionPermission } from "@/lib/auth";
 import { logEvent, syncPendencias } from "@/lib/domain";
 
 const str = (fd: FormData, k: string) => {
@@ -35,6 +36,7 @@ const done = () => revalidatePath("/", "layout");
 /* ---------------- Municípios ---------------- */
 
 export async function createMunicipio(fd: FormData) {
+  await requireServerActionPermission();
   const nome = req(fd, "nome");
   const [row] = await db
     .insert(municipios)
@@ -54,6 +56,7 @@ export async function createMunicipio(fd: FormData) {
 }
 
 export async function updateMunicipio(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   await db
     .update(municipios)
@@ -75,6 +78,7 @@ export async function updateMunicipio(fd: FormData) {
 /* ---------------- Bases ---------------- */
 
 export async function createBase(fd: FormData) {
+  await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   const nome = req(fd, "nome");
   const [row] = await db
@@ -95,6 +99,7 @@ export async function createBase(fd: FormData) {
 /* ---------------- Módulos ---------------- */
 
 export async function createModulo(fd: FormData) {
+  await requireServerActionPermission();
   const baseId = req(fd, "baseId");
   const municipioId = str(fd, "municipioId");
   const nome = req(fd, "nome");
@@ -108,6 +113,7 @@ export async function createModulo(fd: FormData) {
 }
 
 export async function habilitarModulo(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   const municipioId = str(fd, "municipioId");
   const solicitacaoAt = str(fd, "solicitacaoAt");
@@ -139,6 +145,7 @@ export async function habilitarModulo(fd: FormData) {
 }
 
 export async function migracaoModulo(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   const municipioId = str(fd, "municipioId");
   const inicio = str(fd, "migracaoInicio");
@@ -158,6 +165,7 @@ export async function migracaoModulo(fd: FormData) {
 const today = () => new Date().toISOString().slice(0, 10);
 
 export async function implantacaoModulo(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   const municipioId = str(fd, "municipioId");
   const status = req(fd, "implantacaoStatus");
@@ -168,6 +176,7 @@ export async function implantacaoModulo(fd: FormData) {
 }
 
 export async function execucaoModulo(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   const municipioId = str(fd, "municipioId");
   const data = str(fd, "execucaoInicio") ?? today();
@@ -178,6 +187,7 @@ export async function execucaoModulo(fd: FormData) {
 }
 
 export async function desabilitarModulo(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   const municipioId = str(fd, "municipioId");
   const data = str(fd, "data") ?? today();
@@ -199,6 +209,7 @@ export async function desabilitarModulo(fd: FormData) {
 }
 
 export async function reabilitarModulo(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   const municipioId = str(fd, "municipioId");
   await db
@@ -213,6 +224,7 @@ export async function reabilitarModulo(fd: FormData) {
 /* ---------------- Propostas ---------------- */
 
 export async function createProposta(fd: FormData) {
+  await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   const [row] = await db
     .insert(propostas)
@@ -231,6 +243,7 @@ export async function createProposta(fd: FormData) {
 }
 
 export async function setPropostaSituacao(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   const situacao = req(fd, "situacao");
   await db.update(propostas).set({ situacao }).where(eq(propostas.id, id));
@@ -243,6 +256,7 @@ export async function setPropostaSituacao(fd: FormData) {
 /* ---------------- Contratos ---------------- */
 
 export async function createContrato(fd: FormData) {
+  await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   const [row] = await db
     .insert(contratos)
@@ -265,6 +279,7 @@ export async function createContrato(fd: FormData) {
 }
 
 export async function setContratoSituacao(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   const situacao = req(fd, "situacao");
   await db.update(contratos).set({ situacao }).where(eq(contratos.id, id));
@@ -275,6 +290,7 @@ export async function setContratoSituacao(fd: FormData) {
 }
 
 export async function vincularModulo(fd: FormData) {
+  await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
   const baseModuleId = req(fd, "baseModuleId");
   await db.insert(contratoModulos).values({ contratoId, baseModuleId }).onConflictDoNothing();
@@ -285,6 +301,7 @@ export async function vincularModulo(fd: FormData) {
 }
 
 export async function desvincularModulo(fd: FormData) {
+  await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
   const baseModuleId = req(fd, "baseModuleId");
   const { and } = await import("drizzle-orm");
@@ -298,6 +315,7 @@ export async function desvincularModulo(fd: FormData) {
 }
 
 export async function createAditivo(fd: FormData) {
+  await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
   const [row] = await db
     .insert(aditivos)
@@ -316,6 +334,7 @@ export async function createAditivo(fd: FormData) {
 /* ---------------- Documentos ---------------- */
 
 export async function createDocumento(fd: FormData) {
+  await requireServerActionPermission();
   const [row] = await db
     .insert(documentos)
     .values({
@@ -338,6 +357,7 @@ export async function createDocumento(fd: FormData) {
 /* ---------------- Pendências ---------------- */
 
 export async function resolverPendencia(fd: FormData) {
+  await requireServerActionPermission();
   const id = req(fd, "id");
   await db.update(pendencias).set({ situacao: "resolvida", resolvedAt: new Date() }).where(eq(pendencias.id, id));
   const [p] = await db.select().from(pendencias).where(eq(pendencias.id, id));
@@ -346,6 +366,7 @@ export async function resolverPendencia(fd: FormData) {
 }
 
 export async function createPendencia(fd: FormData) {
+  await requireServerActionPermission();
   await db.insert(pendencias).values({
     tipo: "manual",
     descricao: req(fd, "descricao"),

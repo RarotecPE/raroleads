@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { AuthProvider, UserMenu } from "@/components/auth-provider";
 import { APP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -30,14 +31,13 @@ function isActive(pathname: string, href: string) {
 }
 
 function ThemeToggle() {
-  const [light, setLight] = useState(false);
+  const [light, setLight] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("theme") === "light";
+  });
   useEffect(() => {
-    const saved = window.localStorage.getItem("theme");
-    if (saved === "light") {
-      document.documentElement.classList.add("theme-light");
-      setLight(true);
-    }
-  }, []);
+    document.documentElement.classList.toggle("theme-light", light);
+  }, [light]);
   const toggle = () => {
     const next = !light;
     setLight(next);
@@ -62,8 +62,12 @@ export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const current = NAV_ITEMS.find((i) => isActive(pathname, i.href));
 
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
   return (
-    <>
+    <AuthProvider>
       {/* Sidebar fixa — desktop (16rem, w-64) */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-app-border bg-app-surface lg:flex">
         <div className="flex h-16 items-center gap-2.5 border-b border-app-border px-5">
@@ -117,6 +121,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex items-center gap-1">
           <ThemeToggle />
+          <UserMenu />
         </div>
       </header>
 
@@ -153,6 +158,6 @@ export function Shell({ children }: { children: ReactNode }) {
           );
         })}
       </nav>
-    </>
+    </AuthProvider>
   );
 }
