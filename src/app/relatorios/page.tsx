@@ -58,7 +58,7 @@ export default async function RelatoriosPage() {
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <Panel>
-        <PanelHeader title="Municípios por situação" description={`${ativos.length} cliente(s) ativo(s) de ${ms.length}`} />
+        <PanelHeader title="Clientes por situacao" description={`${ativos.length} cliente(s) ativo(s) de ${ms.length}`} />
         <div className="flex flex-col gap-2 p-3 sm:p-4">
           {MUNICIPIO_SITUACOES.map((s) => (
             <Row key={s.value}>
@@ -77,8 +77,8 @@ export default async function RelatoriosPage() {
           ) : (
             semContrato.map((m) => (
               <Row key={m.id}>
-                <Link href={`/municipios/${m.id}`} className="font-semibold text-app-foreground hover:text-app-primary hover:underline">
-                  {m.nome} <span className="text-xs font-normal text-app-muted-foreground">{m.uf}</span>
+                <Link href={`/clientes/${m.id}`} className="font-semibold text-app-foreground hover:text-app-primary hover:underline">
+                  {m.clienteNome} <span className="text-xs font-normal text-app-muted-foreground">{m.municipio} - {m.uf}</span>
                 </Link>
                 <Badge tone={optTone(m.situacao)}>{optLabel(m.situacao)}</Badge>
               </Row>
@@ -88,7 +88,7 @@ export default async function RelatoriosPage() {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Bases sem formalização" description="Bases de municípios sem contrato vigente" />
+        <PanelHeader title="Bases sem formalizacao" description="Bases de clientes sem contrato vigente" />
         <div className="flex flex-col gap-2 p-3 sm:p-4">
           {basesSemFormalizacao.length === 0 ? (
             <Empty title="Todas as bases estão formalizadas" />
@@ -96,7 +96,7 @@ export default async function RelatoriosPage() {
             basesSemFormalizacao.map((b) => (
               <Row key={b.id}>
                 <span className="text-app-foreground">
-                  {b.nome} <span className="text-xs text-app-muted-foreground">· {munById.get(b.municipioId)?.nome}</span>
+                  {b.nome} <span className="text-xs text-app-muted-foreground">· {munById.get(b.municipioId)?.clienteNome}</span>
                 </span>
                 <Badge tone="warning">{b.tipo}</Badge>
               </Row>
@@ -123,7 +123,7 @@ export default async function RelatoriosPage() {
           {semUtilizacao.slice(0, 6).map((m) => (
             <Row key={m.id}>
               <span className="text-xs text-app-muted-foreground">
-                {m.nome} · {baseById.get(m.baseId)?.nome} · {munById.get(baseById.get(m.baseId)?.municipioId ?? "")?.nome}
+                {m.nome} · {baseById.get(m.baseId)?.nome} · {munById.get(baseById.get(m.baseId)?.municipioId ?? "")?.clienteNome}
               </span>
               <Badge tone="warning">sem execução</Badge>
             </Row>
@@ -149,7 +149,7 @@ export default async function RelatoriosPage() {
           {[...vencendo, ...vencidos].slice(0, 6).map(({ c, view }) => (
             <Row key={c.id}>
               <Link href={`/contratos/${c.id}`} className="text-xs font-semibold text-app-foreground hover:text-app-primary hover:underline">
-                Contrato {c.numero} · {munById.get(c.municipioId)?.nome} · até {formatDate(c.dataFim)}
+                Contrato {c.numero} · {munById.get(c.municipioId)?.clienteNome} · ate {formatDate(c.dataFim)}
               </Link>
               <Badge tone={view.tone}>{view.label}</Badge>
             </Row>
@@ -158,15 +158,15 @@ export default async function RelatoriosPage() {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Pendências por município" description={`${abertas.length} aberta(s) no total`} />
+        <PanelHeader title="Pendencias por cliente" description={`${abertas.length} aberta(s) no total`} />
         <div className="flex flex-col gap-2 p-3 sm:p-4">
           {pendsPorMun.size === 0 ? (
             <Empty title="Nenhuma pendência aberta" />
           ) : (
             [...pendsPorMun.entries()].map(([munId, total]) => (
               <Row key={munId}>
-                <Link href={`/municipios/${munId}`} className="font-semibold text-app-foreground hover:text-app-primary hover:underline">
-                  {munById.get(munId)?.nome ?? "—"}
+                <Link href={`/clientes/${munId}`} className="font-semibold text-app-foreground hover:text-app-primary hover:underline">
+                  {munById.get(munId)?.clienteNome ?? "-"}
                 </Link>
                 <Badge tone="warning">{total} aberta(s)</Badge>
               </Row>

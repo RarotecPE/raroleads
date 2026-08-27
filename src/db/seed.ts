@@ -31,7 +31,8 @@ async function main() {
   const [tacaratu] = await db
     .insert(municipios)
     .values({
-      nome: "Tacaratu",
+      clienteNome: "Prefeitura Municipal de Tacaratu",
+      municipio: "Tacaratu",
       uf: "PE",
       codigoIbge: "2612508",
       populacao: 24151,
@@ -158,7 +159,8 @@ async function main() {
   const [paulista] = await db
     .insert(municipios)
     .values({
-      nome: "Paulista",
+      clienteNome: "Prefeitura Municipal de Paulista",
+      municipio: "Paulista",
       uf: "PE",
       codigoIbge: "2610700",
       populacao: 334376,
@@ -245,7 +247,7 @@ async function main() {
   /* -------- Vitória de Santo Antão (em negociação) -------- */
   const [vitoria] = await db
     .insert(municipios)
-    .values({ nome: "Vitória de Santo Antão", uf: "PE", codigoIbge: "2616400", populacao: 134688, situacao: "em_negociacao" })
+    .values({ clienteNome: "Prefeitura Municipal de Vitoria de Santo Antao", municipio: "Vitória de Santo Antão", uf: "PE", codigoIbge: "2616400", populacao: 134688, situacao: "em_negociacao" })
     .returning();
 
   const [vPref] = await db
@@ -265,7 +267,8 @@ async function main() {
 
   /* -------- Carpina (prospect) -------- */
   await db.insert(municipios).values({
-    nome: "Carpina",
+    clienteNome: "Prefeitura Municipal de Carpina",
+    municipio: "Carpina",
     uf: "PE",
     codigoIbge: "2604009",
     populacao: 86241,
@@ -296,7 +299,7 @@ async function main() {
   await syncPendencias();
 
   console.log("Seed concluído:", {
-    municipios: [tacaratu.nome, paulista.nome, vitoria.nome, "Carpina"],
+    municipios: [tacaratu.municipio, paulista.municipio, vitoria.municipio, "Carpina"],
     modulosExemplo: [tRh.nome, tPortal.nome, tSaudeAlmox.nome, tCamaraContab.nome],
   });
 }

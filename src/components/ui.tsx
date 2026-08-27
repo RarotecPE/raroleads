@@ -123,7 +123,7 @@ export function Empty({ title, description }: { title: string; description?: str
   );
 }
 
-/** Chip Sim/Não usado na visão consolidada do município. */
+/** Chip Sim/Nao usado na visao consolidada do cliente. */
 export function YesNo({ yes, label }: { yes: boolean; label: string }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs">

@@ -2,7 +2,7 @@ export const APP = {
   name: "Central de Clientes",
   shortName: "Central",
   description:
-    "Gestão administrativa de municípios, bases, módulos, contratos e histórico.",
+    "Gestao administrativa de clientes, bases, modulos, contratos e historico.",
 };
 
 export type Tone = "primary" | "success" | "warning" | "danger" | "muted";
@@ -149,8 +149,8 @@ export const PENDENCIA_TIPOS: Record<string, { label: string; tone: Tone }> = {
 };
 
 export const EVENTO_TIPOS: Record<string, string> = {
-  municipio_criado: "Município criado",
-  municipio_atualizado: "Município atualizado",
+  municipio_criado: "Cliente criado",
+  municipio_atualizado: "Cliente atualizado",
   base_criada: "Base criada",
   modulo_criado: "Módulo criado",
   habilitacao_solicitada: "Habilitação solicitada",

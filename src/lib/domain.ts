@@ -152,7 +152,7 @@ export async function syncPendencias() {
     const base = baseById.get(m.baseId);
     if (!base) continue;
     const mun = munById.get(base.municipioId);
-    const ctx = `${m.nome} · ${base.nome}${mun ? ` · ${mun.nome}` : ""}`;
+    const ctx = `${m.nome} · ${base.nome}${mun ? ` · ${mun.clienteNome}` : ""}`;
     const lixo = { municipioId: base.municipioId, baseId: base.id, baseModuleId: m.id };
 
     if (m.habilitadoAt && !m.desabilitadoAt && !conSet.has(m.id)) {
@@ -183,7 +183,7 @@ export async function syncPendencias() {
 
   for (const c of cs) {
     const mun = munById.get(c.municipioId);
-    const ctx = `Contrato ${c.numero}${mun ? ` · ${mun.nome}` : ""}`;
+    const ctx = `Contrato ${c.numero}${mun ? ` · ${mun.clienteNome}` : ""}`;
     if (c.situacao !== "vigente" || !c.dataFim) continue;
     const days = daysUntil(c.dataFim);
     if (days === null) continue;
@@ -222,7 +222,7 @@ export async function syncPendencias() {
     desired.push({
       key: `base_incompleta:${b.id}`,
       tipo: "base_incompleta",
-      descricao: `Base ${b.nome}${mun ? ` · ${mun.nome}` : ""} criada sem informações suficientes (CNPJ ausente).`,
+      descricao: `Base ${b.nome}${mun ? ` · ${mun.clienteNome}` : ""} criada sem informações suficientes (CNPJ ausente).`,
       municipioId: b.municipioId,
       baseId: b.id,
     });

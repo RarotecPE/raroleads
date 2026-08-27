@@ -80,7 +80,7 @@ export default async function ContratoDetailPage({
             </div>
             <p className="mt-1 text-xs text-app-muted-foreground">
               {m ? (
-                <Link href={`/municipios/${m.id}`} className="text-app-primary hover:underline">{m.nome}</Link>
+                <Link href={`/clientes/${m.id}`} className="text-app-primary hover:underline">{m.clienteNome}</Link>
               ) : null}{" "}
               · {optLabel(c.modalidade)}
               {c.processo ? ` · Processo ${c.processo}` : ""}
@@ -116,7 +116,7 @@ export default async function ContratoDetailPage({
         />
         <div className="flex flex-col gap-4 p-3 sm:p-5">
           {bs.length === 0 ? (
-            <Empty title="Município sem bases" description="Cadastre bases e módulos na tela do município." />
+            <Empty title="Cliente sem bases" description="Cadastre bases e modulos na tela do cliente." />
           ) : (
             bs.map((b) => {
               const bMods = mods.filter((mo) => mo.baseId === b.id);

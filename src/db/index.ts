@@ -1,8 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { getDatabaseConnection } from "@/db/config";
-
-const databaseConnection = getDatabaseConnection();
+import { getDatabasePoolConfig } from "@/db/config";
 
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;
@@ -10,9 +8,7 @@ const globalForDb = globalThis as typeof globalThis & {
 
 export const pool =
   globalForDb.__arenaNextJsPostgresqlPool ??
-  new Pool({
-    connectionString: databaseConnection,
-  });
+  new Pool(getDatabasePoolConfig());
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.__arenaNextJsPostgresqlPool = pool;

@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 export const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/municipios", label: "Municípios", icon: Building2 },
+  { href: "/clientes", label: "Clientes", icon: Building2 },
   { href: "/contratos", label: "Contratos", icon: FileText },
   { href: "/pendencias", label: "Pendências", icon: AlertTriangle },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
@@ -103,7 +103,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
         <div className="border-t border-app-border p-3">
           <p className="px-2 text-[11px] leading-relaxed text-app-muted-foreground">
-            Fonte única de informação: municípios, bases, módulos, contratos e histórico.
+            Fonte unica de informacao: clientes, bases, modulos, contratos e historico.
           </p>
         </div>
       </aside>

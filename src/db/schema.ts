@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   integer,
   pgTable,
@@ -14,9 +15,10 @@ const id = () =>
 
 /* FASE 1 — Estrutura principal */
 
-export const municipios = pgTable("municipios", {
+export const municipios = pgTable("clientes", {
   id: id(),
-  nome: text("nome").notNull(),
+  clienteNome: text("cliente_nome").notNull(),
+  municipio: text("municipio").notNull(),
   uf: text("uf").notNull(),
   codigoIbge: text("codigo_ibge"),
   populacao: integer("populacao"),
@@ -36,6 +38,23 @@ export const bases = pgTable("bases", {
   cnpj: text("cnpj"),
   situacao: text("situacao").notNull().default("ativa"),
   observacoes: text("observacoes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const baseResponsaveis = pgTable("base_responsaveis", {
+  id: id(),
+  municipioId: text("municipio_id")
+    .notNull()
+    .references(() => municipios.id),
+  baseId: text("base_id")
+    .notNull()
+    .unique()
+    .references(() => bases.id),
+  nome: text("nome").notNull(),
+  email: text("email").notNull(),
+  avisoHabilitacaoEmail: boolean("aviso_habilitacao_email")
+    .notNull()
+    .default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

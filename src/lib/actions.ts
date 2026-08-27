@@ -6,6 +6,7 @@ import { db } from "@/db";
 import {
   aditivos,
   baseModules,
+  baseResponsaveis,
   bases,
   contratoModulos,
   contratos,
@@ -33,15 +34,17 @@ const int = (fd: FormData, k: string) => {
 };
 const done = () => revalidatePath("/", "layout");
 
-/* ---------------- Municípios ---------------- */
+/* ---------------- Clientes ---------------- */
 
 export async function createMunicipio(fd: FormData) {
   await requireServerActionPermission();
-  const nome = req(fd, "nome");
+  const clienteNome = req(fd, "clienteNome");
+  const municipio = req(fd, "municipio");
   const [row] = await db
     .insert(municipios)
     .values({
-      nome,
+      clienteNome,
+      municipio,
       uf: req(fd, "uf").toUpperCase().slice(0, 2),
       codigoIbge: str(fd, "codigoIbge"),
       populacao: int(fd, "populacao"),
@@ -50,7 +53,7 @@ export async function createMunicipio(fd: FormData) {
       observacoes: str(fd, "observacoes"),
     })
     .returning();
-  await logEvent({ tipo: "municipio_criado", descricao: `Município ${nome} criado.`, municipioId: row.id });
+  await logEvent({ tipo: "municipio_criado", descricao: `Cliente ${clienteNome} criado.`, municipioId: row.id });
   await syncPendencias();
   done();
 }
@@ -61,7 +64,8 @@ export async function updateMunicipio(fd: FormData) {
   await db
     .update(municipios)
     .set({
-      nome: req(fd, "nome"),
+      clienteNome: req(fd, "clienteNome"),
+      municipio: req(fd, "municipio"),
       uf: req(fd, "uf").toUpperCase().slice(0, 2),
       codigoIbge: str(fd, "codigoIbge"),
       populacao: int(fd, "populacao"),
@@ -70,7 +74,7 @@ export async function updateMunicipio(fd: FormData) {
       observacoes: str(fd, "observacoes"),
     })
     .where(eq(municipios.id, id));
-  await logEvent({ tipo: "municipio_atualizado", descricao: "Dados do município atualizados.", municipioId: id });
+  await logEvent({ tipo: "municipio_atualizado", descricao: "Dados do cliente atualizados.", municipioId: id });
   await syncPendencias();
   done();
 }
@@ -81,16 +85,39 @@ export async function createBase(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   const nome = req(fd, "nome");
-  const [row] = await db
-    .insert(bases)
-    .values({
-      municipioId,
-      nome,
-      tipo: str(fd, "tipo") ?? "outros",
-      cnpj: str(fd, "cnpj"),
-      observacoes: str(fd, "observacoes"),
-    })
-    .returning();
+  const responsavelNome = str(fd, "responsavelNome");
+  const responsavelEmail = str(fd, "responsavelEmail");
+  const deveCriarResponsavel = !!responsavelNome || !!responsavelEmail;
+
+  if (deveCriarResponsavel && (!responsavelNome || !responsavelEmail)) {
+    throw new Error("Informe nome e e-mail do responsavel pela base, ou deixe os dois campos vazios.");
+  }
+
+  const row = await db.transaction(async (tx) => {
+    const [base] = await tx
+      .insert(bases)
+      .values({
+        municipioId,
+        nome,
+        tipo: str(fd, "tipo") ?? "outros",
+        cnpj: str(fd, "cnpj"),
+        observacoes: str(fd, "observacoes"),
+      })
+      .returning();
+
+    if (deveCriarResponsavel && responsavelNome && responsavelEmail) {
+      await tx.insert(baseResponsaveis).values({
+        municipioId,
+        baseId: base.id,
+        nome: responsavelNome,
+        email: responsavelEmail,
+        avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
+      });
+    }
+
+    return base;
+  });
+
   await logEvent({ tipo: "base_criada", descricao: `Base ${nome} criada.`, municipioId, baseId: row.id });
   await syncPendencias();
   done();

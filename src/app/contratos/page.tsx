@@ -44,7 +44,7 @@ export default async function ContratosPage() {
           description="Um contrato pode contemplar múltiplas bases e módulos"
           right={
             <ContratoForm
-              municipios={ms.map((m) => ({ id: m.id, nome: m.nome }))}
+              municipios={ms.map((m) => ({ id: m.id, nome: m.clienteNome }))}
               trigger={
                 <button type="button" className={btnPrimary}>
                   <Plus className="h-4 w-4" /> Novo contrato
@@ -62,7 +62,7 @@ export default async function ContratosPage() {
             <table className="w-full min-w-[820px] text-left">
               <thead>
                 <tr className="border-b border-app-border">
-                  {["Contrato", "Município", "Modalidade", "Vigência", "Módulos", "Situação"].map((h) => (
+                  {["Contrato", "Cliente", "Modalidade", "Vigencia", "Modulos", "Situacao"].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-app-muted-foreground sm:px-5">{h}</th>
                   ))}
                 </tr>
@@ -78,7 +78,7 @@ export default async function ContratosPage() {
                       {c.processo ? <p className="mt-0.5 text-xs text-app-muted-foreground">Proc. {c.processo}</p> : null}
                     </td>
                     <td className="px-4 py-3 text-sm text-app-muted-foreground sm:px-5">
-                      {munById.get(c.municipioId)?.nome ?? "—"}
+                      {munById.get(c.municipioId)?.clienteNome ?? "-"}
                     </td>
                     <td className="px-4 py-3 text-sm text-app-muted-foreground sm:px-5">{optLabel(c.modalidade)}</td>
                     <td className="px-4 py-3 text-sm text-app-muted-foreground whitespace-nowrap sm:px-5">

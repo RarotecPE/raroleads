@@ -11,7 +11,7 @@ export function ContratoForm({
   propostas,
 }: {
   trigger: ReactNode;
-  /** Quando informado, o município fica fixo (tela do município). */
+  /** Quando informado, o cliente fica fixo (tela do cliente). */
   municipioId?: string;
   municipios?: { id: string; nome: string }[];
   propostas?: { id: string; tipo: string; data: string | null }[];
@@ -27,7 +27,7 @@ export function ContratoForm({
         {municipioId ? <input type="hidden" name="municipioId" value={municipioId} /> : null}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {!municipioId ? (
-            <Field label="Município" className="sm:col-span-2">
+            <Field label="Cliente" className="sm:col-span-2">
               <select name="municipioId" required className={selectCls} defaultValue="">
                 <option value="" disabled>Selecione…</option>
                 {(municipios ?? []).map((m) => (

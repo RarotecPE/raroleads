@@ -47,6 +47,23 @@ export function BaseForm({ trigger, municipioId }: { trigger: ReactNode; municip
             <input name="cnpj" className={inputCls} placeholder="00.000.000/0000-00" />
           </Field>
         </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Responsavel">
+            <input name="responsavelNome" className={inputCls} placeholder="Nome do responsavel pela base" />
+          </Field>
+          <Field label="E-mail">
+            <input name="responsavelEmail" type="email" className={inputCls} placeholder="responsavel@cliente.gov.br" />
+          </Field>
+        </div>
+        <label className="flex items-start gap-2 text-sm text-app-foreground">
+          <input
+            type="checkbox"
+            name="avisoHabilitacaoEmail"
+            defaultChecked
+            className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
+          />
+          <span>Enviar aviso de habilitacao por e-mail</span>
+        </label>
         <Field label="Observações">
           <textarea name="observacoes" rows={2} className={textareaCls} />
         </Field>

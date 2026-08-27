@@ -1,0 +1,164 @@
+import { pool } from "@/db";
+
+const EXPECTED_TABLES = [
+  "clientes",
+  "bases",
+  "base_responsaveis",
+  "base_modules",
+  "propostas",
+  "contratos",
+  "contrato_modulos",
+  "aditivos",
+  "eventos",
+  "documentos",
+  "pendencias",
+] as const;
+
+const EXPECTED_BASE_MODULE_COLUMNS = [
+  "id",
+  "base_id",
+  "nome",
+  "tipo",
+  "observacoes",
+  "solicitante",
+  "solicitacao_at",
+  "solicitacao_origem",
+  "habilitado_at",
+  "migracao_inicio",
+  "migracao_fim",
+  "implantacao_status",
+  "execucao_inicio",
+  "desabilitado_at",
+  "desabilitado_motivo",
+  "desabilitado_justificativa",
+  "created_at",
+] as const;
+
+const EXPECTED_CLIENTE_COLUMNS = [
+  "id",
+  "cliente_nome",
+  "municipio",
+  "uf",
+  "codigo_ibge",
+  "populacao",
+  "situacao",
+  "dados_administrativos",
+  "observacoes",
+  "created_at",
+] as const;
+
+const EXPECTED_BASE_RESPONSAVEL_COLUMNS = [
+  "id",
+  "municipio_id",
+  "base_id",
+  "nome",
+  "email",
+  "aviso_habilitacao_email",
+  "created_at",
+] as const;
+
+export type DatabaseHealth =
+  | {
+      ok: true;
+      status: "ok";
+      context: {
+        database: string;
+        schema: string;
+        user: string;
+      };
+    }
+  | {
+      ok: false;
+      status: "schema_mismatch";
+      context: {
+        database: string;
+        schema: string;
+        user: string;
+      };
+      missingTables: string[];
+      missingBaseModuleColumns: string[];
+      missingClienteColumns: string[];
+      missingBaseResponsavelColumns: string[];
+    }
+  | {
+      ok: false;
+      status: "connection_error";
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+
+function safeError(error: unknown) {
+  const err = error as { code?: string; errno?: string };
+  return {
+    code: err.code ?? err.errno ?? "UNKNOWN",
+    message: error instanceof Error ? error.message : String(error),
+  };
+}
+
+export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
+  try {
+    const context = await pool.query<{
+      database: string;
+      schema: string;
+      user: string;
+    }>("select current_database() as database, current_schema() as schema, current_user as user");
+    const tables = await pool.query<{ table_name: string }>(
+      "select table_name from information_schema.tables where table_schema = current_schema() and table_name = any($1) order by table_name",
+      [EXPECTED_TABLES],
+    );
+    const columns = await pool.query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+      ["base_modules"],
+    );
+    const clienteColumns = await pool.query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+      ["clientes"],
+    );
+    const baseResponsavelColumns = await pool.query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+      ["base_responsaveis"],
+    );
+
+    const tableNames = tables.rows.map((row) => row.table_name);
+    const columnNames = columns.rows.map((row) => row.column_name);
+    const clienteColumnNames = clienteColumns.rows.map((row) => row.column_name);
+    const baseResponsavelColumnNames = baseResponsavelColumns.rows.map((row) => row.column_name);
+    const missingTables = EXPECTED_TABLES.filter((table) => !tableNames.includes(table));
+    const missingBaseModuleColumns = EXPECTED_BASE_MODULE_COLUMNS.filter((column) => !columnNames.includes(column));
+    const missingClienteColumns = EXPECTED_CLIENTE_COLUMNS.filter((column) => !clienteColumnNames.includes(column));
+    const missingBaseResponsavelColumns = EXPECTED_BASE_RESPONSAVEL_COLUMNS.filter(
+      (column) => !baseResponsavelColumnNames.includes(column),
+    );
+
+    if (
+      missingTables.length > 0 ||
+      missingBaseModuleColumns.length > 0 ||
+      missingClienteColumns.length > 0 ||
+      missingBaseResponsavelColumns.length > 0
+    ) {
+      return {
+        ok: false,
+        status: "schema_mismatch",
+        context: context.rows[0],
+        missingTables,
+        missingBaseModuleColumns,
+        missingClienteColumns,
+        missingBaseResponsavelColumns,
+      };
+    }
+
+    return {
+      ok: true,
+      status: "ok",
+      context: context.rows[0],
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: "connection_error",
+      error: safeError(error),
+    };
+  }
+}

@@ -1,9 +1,10 @@
 -- Seed data based on src/db/seed.ts.
 -- Dates mirror the seed helper d(offsetDays) using CURRENT_DATE.
 
-INSERT INTO "municipios" (
+INSERT INTO "clientes" (
   "id",
-  "nome",
+  "cliente_nome",
+  "municipio",
   "uf",
   "codigo_ibge",
   "populacao",
@@ -13,6 +14,7 @@ INSERT INTO "municipios" (
 ) VALUES
   (
     'municipio_tacaratu',
+    'Prefeitura Municipal de Tacaratu',
     'Tacaratu',
     'PE',
     '2612508',
@@ -23,6 +25,7 @@ INSERT INTO "municipios" (
   ),
   (
     'municipio_paulista',
+    'Prefeitura Municipal de Paulista',
     'Paulista',
     'PE',
     '2610700',
@@ -33,6 +36,7 @@ INSERT INTO "municipios" (
   ),
   (
     'municipio_vitoria',
+    'Prefeitura Municipal de Vitoria de Santo Antao',
     'Vitória de Santo Antão',
     'PE',
     '2616400',
@@ -43,6 +47,7 @@ INSERT INTO "municipios" (
   ),
   (
     'municipio_carpina',
+    'Prefeitura Municipal de Carpina',
     'Carpina',
     'PE',
     '2604009',

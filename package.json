@@ -5,6 +5,9 @@
     "dev": "node scripts/next-with-env-port.mjs dev",
     "build": "next build",
     "start": "node scripts/next-with-env-port.mjs start",
+    "db:doctor": "node scripts/db-doctor.mjs",
+    "db:schema": "node scripts/db-apply-sql.mjs migrations/002_current_raroleads_schema.sql migrations/004_add_cliente_nome.sql migrations/005_create_base_responsaveis.sql",
+    "db:seed": "node scripts/db-apply-sql.mjs migrations/003_seed_data.sql",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },

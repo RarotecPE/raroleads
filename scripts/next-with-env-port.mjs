@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { config } from "dotenv";
 
-config({ path: ".env.local", quiet: true });
+config({ path: ".env.local", quiet: true, override: true });
 config({ quiet: true });
 
 const command = process.argv[2] ?? "dev";

@@ -51,7 +51,7 @@ export default async function PendenciasPage({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label="Abertas" value={abertas.length} tone={abertas.length ? "warning" : "muted"} />
         <Stat label="Resolvidas" value={resolvidas.length} tone="success" />
-        <Stat label="Municípios com pendências" value={new Set(abertas.map((p) => p.municipioId).filter(Boolean)).size} tone="primary" />
+        <Stat label="Clientes com pendencias" value={new Set(abertas.map((p) => p.municipioId).filter(Boolean)).size} tone="primary" />
       </div>
 
       <Panel>
@@ -68,11 +68,11 @@ export default async function PendenciasPage({
               }
             >
               <DialogForm action={createPendencia}>
-                <Field label="Município">
+                <Field label="Cliente">
                   <select name="municipioId" className={selectCls} defaultValue="">
                     <option value="">— Sem vínculo —</option>
                     {ms.map((m) => (
-                      <option key={m.id} value={m.id}>{m.nome}</option>
+                      <option key={m.id} value={m.id}>{m.clienteNome}</option>
                     ))}
                   </select>
                 </Field>
@@ -129,7 +129,7 @@ export default async function PendenciasPage({
                   <p className="mt-1.5 text-sm text-app-foreground">{p.descricao}</p>
                   <p className="mt-1 text-[11px] text-app-muted-foreground">
                     {mun ? (
-                      <Link href={`/municipios/${mun.id}`} className="text-app-primary hover:underline">{mun.nome}</Link>
+                      <Link href={`/clientes/${mun.id}`} className="text-app-primary hover:underline">{mun.clienteNome}</Link>
                     ) : null}
                     {base ? ` · Base ${base.nome}` : ""}
                     {mod ? ` · Módulo ${mod.nome}` : ""}
