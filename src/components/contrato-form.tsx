@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import { Field, btnPrimary, inputCls, selectCls, textareaCls } from "@/components/ui";
 import { createContrato } from "@/lib/actions";
-import { CONTRATO_MODALIDADES, CONTRATO_SITUACOES, DOCUMENTO_TIPOS } from "@/lib/constants";
+import { CONTRATO_MODALIDADES, CONTRATO_SITUACOES, CONTRATO_TIPOS, DOCUMENTO_TIPOS } from "@/lib/constants";
 
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.txt,.csv,.rtf,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.bmp";
 
@@ -86,7 +86,7 @@ export function ContratoForm({
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Tipo do documento">
               <select name="documentoTipo" className={selectCls} defaultValue="contrato">
-                {DOCUMENTO_TIPOS.map((t) => (
+                {CONTRATO_TIPOS.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>

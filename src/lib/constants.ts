@@ -137,6 +137,12 @@ export const DOCUMENTO_TIPOS: Option[] = [
   { value: "outros", label: "Outros", tone: "muted" },
 ];
 
+export const CONTRATO_TIPOS: Option[] = [
+  { value: "contrato", label: "Contrato", tone: "primary"},
+  { value: "contrato_sem_assinatura", label: "Contrato sem assinatura", tone: "warning" },
+  { value: "contrato_assinado", label: "Contrato assinado", tone: "success" },
+]
+
 export const PENDENCIA_TIPOS: Record<string, { label: string; tone: Tone }> = {
   habilitado_sem_contrato: { label: "Habilitado sem contrato", tone: "danger" },
   habilitado_sem_solicitacao: { label: "Habilitado sem solicitação", tone: "warning" },

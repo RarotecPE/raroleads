@@ -69,6 +69,7 @@ const expectedDocumentoColumns = [
   "base_module_id",
   "proposta_id",
   "contrato_id",
+  "aditivo_id",
   "evento_id",
   "tipo",
   "nome",

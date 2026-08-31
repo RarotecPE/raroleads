@@ -25,6 +25,7 @@ import {
 import {
   ADITIVO_TIPOS,
   CONTRATO_SITUACOES,
+  DOCUMENTO_TIPOS,
   EVENTO_TIPOS,
   optLabel,
   optTone,
@@ -33,6 +34,8 @@ import { contratoView, syncPendencias } from "@/lib/domain";
 import { formatDate, formatDateTime, todayISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.txt,.csv,.rtf,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.bmp";
 
 export default async function ContratoDetailPage({
   params,
@@ -197,6 +200,24 @@ export default async function ContratoDetailPage({
                   <Field label="Descrição">
                     <textarea name="descricao" required rows={3} className={textareaCls} placeholder="Ex.: Inclusão do módulo Portal na base Prefeitura." />
                   </Field>
+                  <div className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
+                    <p className="text-sm font-semibold text-app-foreground">Anexo do aditivo</p>
+                    <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field label="Tipo do documento">
+                        <select name="documentoTipo" className={selectCls} defaultValue="aditivo">
+                          {DOCUMENTO_TIPOS.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Nome de exibicao">
+                        <input name="documentoNome" className={inputCls} placeholder="Ex.: Aditivo assinado" />
+                      </Field>
+                      <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
+                        <input name="arquivo" type="file" accept={FILE_ACCEPT} className={inputCls} />
+                      </Field>
+                    </div>
+                  </div>
                   <div className="flex justify-end">
                     <SubmitButton className={btnPrimary}>Registrar aditivo</SubmitButton>
                   </div>
@@ -245,7 +266,10 @@ export default async function ContratoDetailPage({
                 <div key={d.id} className="flex items-center justify-between gap-3 rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-app-foreground">{d.nome}</p>
-                    <p className="truncate text-xs text-app-muted-foreground">{d.arquivoNomeOriginal ?? d.referencia ?? "Sem arquivo armazenado"}</p>
+                    <p className="truncate text-xs text-app-muted-foreground">
+                      {d.arquivoNomeOriginal ?? d.referencia ?? "Sem arquivo armazenado"}
+                      {d.aditivoId ? " · Aditivo" : ""}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone={optTone(d.tipo)}>{optLabel(d.tipo)}</Badge>

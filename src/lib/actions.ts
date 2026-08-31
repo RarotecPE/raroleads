@@ -447,16 +447,44 @@ export async function desvincularModulo(fd: FormData) {
 export async function createAditivo(fd: FormData) {
   await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
-  const [row] = await db
-    .insert(aditivos)
-    .values({
-      contratoId,
-      tipo: str(fd, "tipo") ?? "alteracao_contratual",
-      data: str(fd, "data") ?? today(),
-      descricao: req(fd, "descricao"),
-    })
-    .returning();
   const [c] = await db.select().from(contratos).where(eq(contratos.id, contratoId));
+  if (!c) throw new Error("Contrato nao encontrado.");
+  const arquivo = fileFromFormData(fd);
+  let uploadedKey: string | null = null;
+  const row = await db.transaction(async (tx) => {
+    const [aditivo] = await tx
+      .insert(aditivos)
+      .values({
+        contratoId,
+        tipo: str(fd, "tipo") ?? "alteracao_contratual",
+        data: str(fd, "data") ?? today(),
+        descricao: req(fd, "descricao"),
+      })
+      .returning();
+
+    if (arquivo) {
+      const documentoId = newId();
+      const uploaded = await uploadDocumentFile(arquivo, c.municipioId, documentoId);
+      uploadedKey = uploaded.key;
+      await tx.insert(documentos).values({
+        id: documentoId,
+        municipioId: c.municipioId,
+        contratoId,
+        aditivoId: aditivo.id,
+        tipo: str(fd, "documentoTipo") ?? "aditivo",
+        nome: str(fd, "documentoNome") ?? uploaded.originalName,
+        storageKey: uploaded.key,
+        mimeType: uploaded.contentType,
+        tamanhoBytes: uploaded.size,
+        arquivoNomeOriginal: uploaded.originalName,
+      });
+    }
+
+    return aditivo;
+  }).catch(async (error) => {
+    if (uploadedKey) await deleteDocumentFile(uploadedKey).catch(() => undefined);
+    throw error;
+  });
   await logEvent({ tipo: "aditivo_criado", descricao: `Aditivo (${row.tipo}): ${row.descricao}`, municipioId: c?.municipioId ?? null, contratoId, data: row.data ?? today() });
   done();
 }

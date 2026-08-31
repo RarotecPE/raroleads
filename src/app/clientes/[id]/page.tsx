@@ -453,6 +453,7 @@ export default async function ClienteDetailPage({
                     <p className="truncate text-xs text-app-muted-foreground">
                       {d.arquivoNomeOriginal ?? d.referencia ?? "Sem arquivo armazenado"}
                       {d.contratoId ? ` · Contrato ${contratoById.get(d.contratoId)?.numero ?? ""}` : ""}
+                      {d.aditivoId ? " · Aditivo" : ""}
                       {d.propostaId ? ` · Proposta ${optLabel(propostaById.get(d.propostaId)?.tipo)}` : ""}
                     </p>
                   </div>

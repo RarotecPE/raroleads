@@ -163,6 +163,7 @@ export const documentos = pgTable("documentos", {
   baseModuleId: text("base_module_id").references(() => baseModules.id),
   propostaId: text("proposta_id").references(() => propostas.id),
   contratoId: text("contrato_id").references(() => contratos.id),
+  aditivoId: text("aditivo_id").references(() => aditivos.id),
   eventoId: text("evento_id").references(() => eventos.id),
   tipo: text("tipo").notNull().default("outros"),
   nome: text("nome").notNull(),
