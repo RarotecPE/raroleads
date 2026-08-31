@@ -1,4 +1,4 @@
-import { Link2, Link2Off, Paperclip, Plus, Save } from "lucide-react";
+import { Download, Link2, Link2Off, Paperclip, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
@@ -245,9 +245,16 @@ export default async function ContratoDetailPage({
                 <div key={d.id} className="flex items-center justify-between gap-3 rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-app-foreground">{d.nome}</p>
-                    <p className="truncate text-xs text-app-muted-foreground">{d.referencia ?? "Sem referência"}</p>
+                    <p className="truncate text-xs text-app-muted-foreground">{d.arquivoNomeOriginal ?? d.referencia ?? "Sem arquivo armazenado"}</p>
                   </div>
-                  <Badge tone={optTone(d.tipo)}>{optLabel(d.tipo)}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge tone={optTone(d.tipo)}>{optLabel(d.tipo)}</Badge>
+                    {d.storageKey ? (
+                      <Link href={`/api/documentos/${d.id}/download`} className={btnXsGhost} title="Baixar documento" aria-label={`Baixar ${d.nome}`}>
+                        <Download className="h-3.5 w-3.5" /> Baixar
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               ))
             )}

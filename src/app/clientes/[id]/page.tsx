@@ -1,17 +1,17 @@
-import { FileText, Mail, Paperclip, Pencil, Plus, Sparkles, XCircle } from "lucide-react";
+import { Download, FileText, Mail, Paperclip, Pencil, Phone, Plus, Sparkles, Trash2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   baseModules,
-  baseResponsaveis,
   bases,
   contratoModulos,
   contratos,
   documentos,
   eventos,
   municipios,
+  moduloResponsaveis,
   pendencias,
   propostas,
 } from "@/db/schema";
@@ -20,10 +20,12 @@ import { ModuloActions } from "@/components/modulo-actions";
 import { ClienteForm } from "@/components/cliente-form";
 import {
   BaseForm,
+  DeleteResponsavelModuloForm,
   DocumentoForm,
   ModuloForm,
   PropostaForm,
   PropostaSituacaoForm,
+  ResponsavelModuloForm,
 } from "@/components/registry-forms";
 import { Badge, Empty, Panel, PanelHeader, Stat, YesNo, btnGhost, btnPrimary, btnXsGhost } from "@/components/ui";
 import {
@@ -52,7 +54,7 @@ export default async function ClienteDetailPage({
   if (!m) notFound();
 
   const bs = await db.select().from(bases).where(eq(bases.municipioId, id));
-  const responsaveis = await db.select().from(baseResponsaveis).where(eq(baseResponsaveis.municipioId, id));
+  const responsaveis = await db.select().from(moduloResponsaveis).where(eq(moduloResponsaveis.municipioId, id));
   const baseIds = bs.map((b) => b.id);
   const mods = baseIds.length
     ? await db.select().from(baseModules).where(inArray(baseModules.baseId, baseIds))
@@ -75,8 +77,20 @@ export default async function ClienteDetailPage({
   const vigentes = cs.filter((c) => c.situacao === "vigente").length;
   const pendsAbertas = pends.filter((p) => p.situacao === "aberta");
   const baseById = new Map(bs.map((b) => [b.id, b]));
-  const responsavelByBaseId = new Map(responsaveis.map((responsavel) => [responsavel.baseId, responsavel]));
   const modById = new Map(mods.map((mo) => [mo.id, mo]));
+  const contratoById = new Map(cs.map((c) => [c.id, c]));
+  const propostaById = new Map(props.map((p) => [p.id, p]));
+  const modulosResponsavelOptions = mods.map((mo) => ({
+    id: mo.id,
+    nome: mo.nome,
+    baseNome: baseById.get(mo.baseId)?.nome ?? "Base nao encontrada",
+  }));
+  const responsaveisByModuloId = new Map<string, typeof responsaveis>();
+  for (const responsavel of responsaveis) {
+    const list = responsaveisByModuloId.get(responsavel.baseModuleId) ?? [];
+    list.push(responsavel);
+    responsaveisByModuloId.set(responsavel.baseModuleId, list);
+  }
 
   const owned = new Set(mods.map((mo) => norm(mo.nome)));
   const oportunidades =
@@ -155,7 +169,6 @@ export default async function ClienteDetailPage({
           ) : (
             bs.map((b) => {
               const bMods = mods.filter((mo) => mo.baseId === b.id);
-              const responsavel = responsavelByBaseId.get(b.id);
               return (
                 <section key={b.id} className="rounded-app-lg border border-app-border bg-app-surface-elevated/30">
                   <header className="flex flex-wrap items-center justify-between gap-2 border-b border-app-border px-4 py-3">
@@ -163,17 +176,6 @@ export default async function ClienteDetailPage({
                       <h3 className="text-sm font-bold text-app-foreground">{b.nome}</h3>
                       <Badge tone="muted">{b.tipo}</Badge>
                       {!b.cnpj ? <Badge tone="warning">Sem CNPJ</Badge> : <span className="text-xs text-app-muted-foreground">{b.cnpj}</span>}
-                      {responsavel ? (
-                        <>
-                          <span className="inline-flex items-center gap-1 text-xs text-app-muted-foreground">
-                            <Mail className="h-3.5 w-3.5" />
-                            {responsavel.nome} · {responsavel.email}
-                          </span>
-                          <Badge tone={responsavel.avisoHabilitacaoEmail ? "success" : "muted"}>
-                            Aviso {responsavel.avisoHabilitacaoEmail ? "habilitado" : "desabilitado"}
-                          </Badge>
-                        </>
-                      ) : null}
                     </div>
                     <ModuloForm
                       baseId={b.id}
@@ -192,11 +194,23 @@ export default async function ClienteDetailPage({
                       bMods.map((mo) => {
                         const contratado = conSet.has(mo.id);
                         const state = moduloState(mo, contratado);
+                        const rMods = responsaveisByModuloId.get(mo.id) ?? [];
+                        const primeiroResponsavel = rMods[0];
+                        const outrosResponsaveis = rMods.length - 1;
                         return (
                           <div key={mo.id} className="flex flex-col gap-2.5 px-4 py-3.5">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-app-foreground">{mo.nome}</span>
                               <Badge tone={state.tone}>{state.label}</Badge>
+                              {primeiroResponsavel ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-app-muted-foreground">
+                                  <Mail className="h-3.5 w-3.5" />
+                                  <span>
+                                    Responsável: {primeiroResponsavel.nome} - {primeiroResponsavel.email ?? "E-mail pendente"}
+                                  </span>
+                                  {outrosResponsaveis > 0 ? <Badge tone="muted">+{outrosResponsaveis}</Badge> : null}
+                                </span>
+                              ) : null}
                               <div className="ml-auto flex flex-wrap items-center gap-3">
                                 <YesNo yes={contratado} label="Contrato" />
                                 <YesNo yes={!!mo.habilitadoAt && !mo.desabilitadoAt} label="Habilitado" />
@@ -239,6 +253,86 @@ export default async function ClienteDetailPage({
                     )}
                   </div>
                 </section>
+              );
+            })
+          )}
+        </div>
+      </Panel>
+
+      {/* Responsaveis */}
+      <Panel>
+        <PanelHeader
+          title="Responsaveis"
+          description="Contatos vinculados aos modulos do cliente"
+          right={
+            modulosResponsavelOptions.length > 0 ? (
+              <ResponsavelModuloForm
+                municipioId={m.id}
+                modulos={modulosResponsavelOptions}
+                trigger={
+                  <button type="button" className={btnPrimary}>
+                    <Plus className="h-4 w-4" /> Novo responsavel
+                  </button>
+                }
+              />
+            ) : (
+              <button type="button" disabled className={btnPrimary}>
+                <Plus className="h-4 w-4" /> Novo responsavel
+              </button>
+            )
+          }
+        />
+        <div className="flex flex-col gap-2 p-3 sm:p-4">
+          {responsaveis.length === 0 ? (
+            <Empty title="Nenhum responsavel" description="Cadastre responsaveis depois de criar modulos." />
+          ) : (
+            responsaveis.map((responsavel) => {
+              const modulo = modById.get(responsavel.baseModuleId);
+              const base = modulo ? baseById.get(modulo.baseId) : null;
+              const hasContato = !!responsavel.email || !!responsavel.celular;
+              return (
+                <div key={responsavel.id} className="flex flex-wrap items-center justify-between gap-3 rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-app-foreground">{responsavel.nome}</p>
+                      <Badge tone="muted">{base?.nome ?? "Base não encontrada"}</Badge>
+                      <Badge tone="primary">{modulo?.nome ?? "Módulo não encontrado"}</Badge>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-app-muted-foreground">
+                      {responsavel.email ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Mail className="h-3.5 w-3.5" /> {responsavel.email}
+                        </span>
+                      ) : null}
+                      {responsavel.celular ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Phone className="h-3.5 w-3.5" /> {responsavel.celular}
+                        </span>
+                      ) : null}
+                      {!hasContato ? <span>Contato pendente</span> : null}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <ResponsavelModuloForm
+                      municipioId={m.id}
+                      modulos={modulosResponsavelOptions}
+                      responsavel={responsavel}
+                      trigger={
+                        <button type="button" className={btnXsGhost} title="Editar responsavel" aria-label="Editar responsavel">
+                          <Pencil className="h-3.5 w-3.5" /> Editar
+                        </button>
+                      }
+                    />
+                    <DeleteResponsavelModuloForm
+                      responsavel={responsavel}
+                      trigger={
+                        <button type="button" className={btnXsGhost} title="Deletar responsavel" aria-label="Deletar responsavel">
+                          <Trash2 className="h-3.5 w-3.5 text-app-danger" /> Deletar
+                        </button>
+                      }
+                    />
+                  </div>
+                </div>
               );
             })
           )}
@@ -357,11 +451,19 @@ export default async function ClienteDetailPage({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-app-foreground">{d.nome}</p>
                     <p className="truncate text-xs text-app-muted-foreground">
-                      {d.referencia ?? "Sem referência"}
-                      {d.contratoId ? ` · Contrato ${cs.find((c) => c.id === d.contratoId)?.numero ?? ""}` : ""}
+                      {d.arquivoNomeOriginal ?? d.referencia ?? "Sem arquivo armazenado"}
+                      {d.contratoId ? ` · Contrato ${contratoById.get(d.contratoId)?.numero ?? ""}` : ""}
+                      {d.propostaId ? ` · Proposta ${optLabel(propostaById.get(d.propostaId)?.tipo)}` : ""}
                     </p>
                   </div>
-                  <Badge tone={optTone(d.tipo)}>{optLabel(d.tipo)}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge tone={optTone(d.tipo)}>{optLabel(d.tipo)}</Badge>
+                    {d.storageKey ? (
+                      <Link href={`/api/documentos/${d.id}/download`} className={btnXsGhost} title="Baixar documento" aria-label={`Baixar ${d.nome}`}>
+                        <Download className="h-3.5 w-3.5" /> Baixar
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               ))
             )}

@@ -7,7 +7,7 @@ dotenv.config({ path: ".env" });
 const expectedTables = [
   "clientes",
   "bases",
-  "base_responsaveis",
+  "modulo_responsaveis",
   "base_modules",
   "propostas",
   "contratos",
@@ -51,13 +51,33 @@ const expectedClienteColumns = [
   "created_at",
 ];
 
-const expectedBaseResponsavelColumns = [
+const expectedModuloResponsavelColumns = [
+  "id",
+  "municipio_id",
+  "base_module_id",
+  "nome",
+  "email",
+  "celular",
+  "aviso_habilitacao_email",
+  "created_at",
+];
+
+const expectedDocumentoColumns = [
   "id",
   "municipio_id",
   "base_id",
+  "base_module_id",
+  "proposta_id",
+  "contrato_id",
+  "evento_id",
+  "tipo",
   "nome",
-  "email",
-  "aviso_habilitacao_email",
+  "referencia",
+  "storage_key",
+  "mime_type",
+  "tamanho_bytes",
+  "arquivo_nome_original",
+  "observacoes",
   "created_at",
 ];
 
@@ -110,26 +130,35 @@ try {
     "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
     ["clientes"],
   );
-  const baseResponsavelColumns = await pool.query(
+  const moduloResponsavelColumns = await pool.query(
     "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
-    ["base_responsaveis"],
+    ["modulo_responsaveis"],
+  );
+  const documentoColumns = await pool.query(
+    "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+    ["documentos"],
   );
 
   const tableNames = tables.rows.map((row) => row.table_name);
   const columnNames = columns.rows.map((row) => row.column_name);
   const clienteColumnNames = clienteColumns.rows.map((row) => row.column_name);
-  const baseResponsavelColumnNames = baseResponsavelColumns.rows.map((row) => row.column_name);
+  const moduloResponsavelColumnNames = moduloResponsavelColumns.rows.map((row) => row.column_name);
+  const documentoColumnNames = documentoColumns.rows.map((row) => row.column_name);
   const missingTables = expectedTables.filter((table) => !tableNames.includes(table));
   const missingBaseModuleColumns = expectedBaseModuleColumns.filter((column) => !columnNames.includes(column));
   const missingClienteColumns = expectedClienteColumns.filter((column) => !clienteColumnNames.includes(column));
-  const missingBaseResponsavelColumns = expectedBaseResponsavelColumns.filter(
-    (column) => !baseResponsavelColumnNames.includes(column),
+  const missingModuloResponsavelColumns = expectedModuloResponsavelColumns.filter(
+    (column) => !moduloResponsavelColumnNames.includes(column),
+  );
+  const missingDocumentoColumns = expectedDocumentoColumns.filter(
+    (column) => !documentoColumnNames.includes(column),
   );
   const ok =
     missingTables.length === 0 &&
     missingBaseModuleColumns.length === 0 &&
     missingClienteColumns.length === 0 &&
-    missingBaseResponsavelColumns.length === 0;
+    missingModuloResponsavelColumns.length === 0 &&
+    missingDocumentoColumns.length === 0;
 
   console.log(
     JSON.stringify(
@@ -143,8 +172,10 @@ try {
         missingBaseModuleColumns,
         clienteColumns: clienteColumnNames,
         missingClienteColumns,
-        baseResponsaveisColumns: baseResponsavelColumnNames,
-        missingBaseResponsaveisColumns: missingBaseResponsavelColumns,
+        moduloResponsaveisColumns: moduloResponsavelColumnNames,
+        missingModuloResponsaveisColumns: missingModuloResponsavelColumns,
+        documentoColumns: documentoColumnNames,
+        missingDocumentoColumns,
       },
       null,
       2,

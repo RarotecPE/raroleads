@@ -3,7 +3,7 @@ import { pool } from "@/db";
 const EXPECTED_TABLES = [
   "clientes",
   "bases",
-  "base_responsaveis",
+  "modulo_responsaveis",
   "base_modules",
   "propostas",
   "contratos",
@@ -47,13 +47,33 @@ const EXPECTED_CLIENTE_COLUMNS = [
   "created_at",
 ] as const;
 
-const EXPECTED_BASE_RESPONSAVEL_COLUMNS = [
+const EXPECTED_MODULO_RESPONSAVEL_COLUMNS = [
+  "id",
+  "municipio_id",
+  "base_module_id",
+  "nome",
+  "email",
+  "celular",
+  "aviso_habilitacao_email",
+  "created_at",
+] as const;
+
+const EXPECTED_DOCUMENTO_COLUMNS = [
   "id",
   "municipio_id",
   "base_id",
+  "base_module_id",
+  "proposta_id",
+  "contrato_id",
+  "evento_id",
+  "tipo",
   "nome",
-  "email",
-  "aviso_habilitacao_email",
+  "referencia",
+  "storage_key",
+  "mime_type",
+  "tamanho_bytes",
+  "arquivo_nome_original",
+  "observacoes",
   "created_at",
 ] as const;
 
@@ -78,7 +98,8 @@ export type DatabaseHealth =
       missingTables: string[];
       missingBaseModuleColumns: string[];
       missingClienteColumns: string[];
-      missingBaseResponsavelColumns: string[];
+      missingModuloResponsavelColumns: string[];
+      missingDocumentoColumns: string[];
     }
   | {
       ok: false;
@@ -116,27 +137,36 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
       "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
       ["clientes"],
     );
-    const baseResponsavelColumns = await pool.query<{ column_name: string }>(
+    const moduloResponsavelColumns = await pool.query<{ column_name: string }>(
       "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
-      ["base_responsaveis"],
+      ["modulo_responsaveis"],
+    );
+    const documentoColumns = await pool.query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+      ["documentos"],
     );
 
     const tableNames = tables.rows.map((row) => row.table_name);
     const columnNames = columns.rows.map((row) => row.column_name);
     const clienteColumnNames = clienteColumns.rows.map((row) => row.column_name);
-    const baseResponsavelColumnNames = baseResponsavelColumns.rows.map((row) => row.column_name);
+    const moduloResponsavelColumnNames = moduloResponsavelColumns.rows.map((row) => row.column_name);
+    const documentoColumnNames = documentoColumns.rows.map((row) => row.column_name);
     const missingTables = EXPECTED_TABLES.filter((table) => !tableNames.includes(table));
     const missingBaseModuleColumns = EXPECTED_BASE_MODULE_COLUMNS.filter((column) => !columnNames.includes(column));
     const missingClienteColumns = EXPECTED_CLIENTE_COLUMNS.filter((column) => !clienteColumnNames.includes(column));
-    const missingBaseResponsavelColumns = EXPECTED_BASE_RESPONSAVEL_COLUMNS.filter(
-      (column) => !baseResponsavelColumnNames.includes(column),
+    const missingModuloResponsavelColumns = EXPECTED_MODULO_RESPONSAVEL_COLUMNS.filter(
+      (column) => !moduloResponsavelColumnNames.includes(column),
+    );
+    const missingDocumentoColumns = EXPECTED_DOCUMENTO_COLUMNS.filter(
+      (column) => !documentoColumnNames.includes(column),
     );
 
     if (
       missingTables.length > 0 ||
       missingBaseModuleColumns.length > 0 ||
       missingClienteColumns.length > 0 ||
-      missingBaseResponsavelColumns.length > 0
+      missingModuloResponsavelColumns.length > 0 ||
+      missingDocumentoColumns.length > 0
     ) {
       return {
         ok: false,
@@ -145,7 +175,8 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
         missingTables,
         missingBaseModuleColumns,
         missingClienteColumns,
-        missingBaseResponsavelColumns,
+        missingModuloResponsavelColumns,
+        missingDocumentoColumns,
       };
     }
 

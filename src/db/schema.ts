@@ -41,23 +41,6 @@ export const bases = pgTable("bases", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const baseResponsaveis = pgTable("base_responsaveis", {
-  id: id(),
-  municipioId: text("municipio_id")
-    .notNull()
-    .references(() => municipios.id),
-  baseId: text("base_id")
-    .notNull()
-    .unique()
-    .references(() => bases.id),
-  nome: text("nome").notNull(),
-  email: text("email").notNull(),
-  avisoHabilitacaoEmail: boolean("aviso_habilitacao_email")
-    .notNull()
-    .default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
 /* FASE 3 — Operação (ciclo de vida do módulo) */
 
 export const baseModules = pgTable("base_modules", {
@@ -81,6 +64,23 @@ export const baseModules = pgTable("base_modules", {
   desabilitadoAt: date("desabilitado_at"),
   desabilitadoMotivo: text("desabilitado_motivo"),
   desabilitadoJustificativa: text("desabilitado_justificativa"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const moduloResponsaveis = pgTable("modulo_responsaveis", {
+  id: id(),
+  municipioId: text("municipio_id")
+    .notNull()
+    .references(() => municipios.id),
+  baseModuleId: text("base_module_id")
+    .notNull()
+    .references(() => baseModules.id, { onDelete: "cascade" }),
+  nome: text("nome").notNull(),
+  email: text("email"),
+  celular: text("celular"),
+  avisoHabilitacaoEmail: boolean("aviso_habilitacao_email")
+    .notNull()
+    .default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -161,11 +161,16 @@ export const documentos = pgTable("documentos", {
   municipioId: text("municipio_id").references(() => municipios.id),
   baseId: text("base_id").references(() => bases.id),
   baseModuleId: text("base_module_id").references(() => baseModules.id),
+  propostaId: text("proposta_id").references(() => propostas.id),
   contratoId: text("contrato_id").references(() => contratos.id),
   eventoId: text("evento_id").references(() => eventos.id),
   tipo: text("tipo").notNull().default("outros"),
   nome: text("nome").notNull(),
   referencia: text("referencia"),
+  storageKey: text("storage_key"),
+  mimeType: text("mime_type"),
+  tamanhoBytes: integer("tamanho_bytes"),
+  arquivoNomeOriginal: text("arquivo_nome_original"),
   observacoes: text("observacoes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

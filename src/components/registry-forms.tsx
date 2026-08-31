@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import {
   Field,
+  btnDanger,
   btnPrimary,
   btnXs,
   inputCls,
@@ -13,7 +14,10 @@ import {
   createDocumento,
   createModulo,
   createProposta,
+  createResponsavelModulo,
+  deleteResponsavelModulo,
   setPropostaSituacao,
+  updateResponsavelModulo,
 } from "@/lib/actions";
 import {
   BASE_TIPOS,
@@ -22,6 +26,8 @@ import {
   PROPOSTA_SITUACOES,
   PROPOSTA_TIPOS,
 } from "@/lib/constants";
+
+const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.txt,.csv,.rtf,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.bmp";
 
 export function BaseForm({ trigger, municipioId }: { trigger: ReactNode; municipioId: string }) {
   return (
@@ -47,23 +53,6 @@ export function BaseForm({ trigger, municipioId }: { trigger: ReactNode; municip
             <input name="cnpj" className={inputCls} placeholder="00.000.000/0000-00" />
           </Field>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Responsavel">
-            <input name="responsavelNome" className={inputCls} placeholder="Nome do responsavel pela base" />
-          </Field>
-          <Field label="E-mail">
-            <input name="responsavelEmail" type="email" className={inputCls} placeholder="responsavel@cliente.gov.br" />
-          </Field>
-        </div>
-        <label className="flex items-start gap-2 text-sm text-app-foreground">
-          <input
-            type="checkbox"
-            name="avisoHabilitacaoEmail"
-            defaultChecked
-            className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
-          />
-          <span>Enviar aviso de habilitacao por e-mail</span>
-        </label>
         <Field label="Observações">
           <textarea name="observacoes" rows={2} className={textareaCls} />
         </Field>
@@ -104,8 +93,130 @@ export function ModuloForm({
         <Field label="Observações">
           <textarea name="observacoes" rows={2} className={textareaCls} />
         </Field>
+        <div className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
+          <p className="text-sm font-semibold text-app-foreground">Responsavel inicial</p>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Nome">
+              <input name="responsavelNome" className={inputCls} placeholder="Nome do responsavel" />
+            </Field>
+            <Field label="E-mail">
+              <input name="responsavelEmail" type="email" className={inputCls} placeholder="responsavel@cliente.gov.br" />
+            </Field>
+            <Field label="Celular">
+              <input name="responsavelCelular" className={inputCls} placeholder="(00) 00000-0000" />
+            </Field>
+            <label className="flex items-start gap-2 self-end text-sm text-app-foreground">
+              <input
+                type="checkbox"
+                name="avisoHabilitacaoEmail"
+                defaultChecked
+                className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
+              />
+              <span>Enviar aviso de habilitacao por e-mail</span>
+            </label>
+          </div>
+        </div>
         <div className="flex justify-end">
           <SubmitButton className={btnPrimary}>Cadastrar módulo</SubmitButton>
+        </div>
+      </DialogForm>
+    </Dialog>
+  );
+}
+
+export function ResponsavelModuloForm({
+  trigger,
+  municipioId,
+  modulos,
+  responsavel,
+}: {
+  trigger: ReactNode;
+  municipioId: string;
+  modulos: { id: string; nome: string; baseNome: string }[];
+  responsavel?: {
+    id: string;
+    baseModuleId: string;
+    nome: string;
+    email: string | null;
+    celular: string | null;
+    avisoHabilitacaoEmail: boolean;
+  };
+}) {
+  const isEdit = !!responsavel;
+  return (
+    <Dialog
+      trigger={trigger}
+      title={isEdit ? "Editar responsavel" : "Novo responsavel"}
+      description={isEdit ? "Atualize os dados de contato do responsavel." : "Vincule um responsavel a um modulo do cliente."}
+    >
+      <DialogForm action={isEdit ? updateResponsavelModulo : createResponsavelModulo}>
+        <input type="hidden" name="municipioId" value={municipioId} />
+        {responsavel ? (
+          <>
+            <input type="hidden" name="id" value={responsavel.id} />
+            <input type="hidden" name="baseModuleId" value={responsavel.baseModuleId} />
+          </>
+        ) : (
+          <Field label="Modulo">
+            <select name="baseModuleId" required className={selectCls} defaultValue="">
+              <option value="" disabled>Selecione...</option>
+              {modulos.map((modulo) => (
+                <option key={modulo.id} value={modulo.id}>{modulo.baseNome} - {modulo.nome}</option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Nome">
+            <input name="nome" required defaultValue={responsavel?.nome ?? ""} className={inputCls} placeholder="Nome do responsavel" />
+          </Field>
+          <Field label="E-mail">
+            <input name="email" type="email" defaultValue={responsavel?.email ?? ""} className={inputCls} placeholder="responsavel@cliente.gov.br" />
+          </Field>
+          <Field label="Celular">
+            <input name="celular" defaultValue={responsavel?.celular ?? ""} className={inputCls} placeholder="(00) 00000-0000" />
+          </Field>
+          <label className="flex items-start gap-2 self-end text-sm text-app-foreground">
+            <input
+              type="checkbox"
+              name="avisoHabilitacaoEmail"
+              defaultChecked={responsavel?.avisoHabilitacaoEmail ?? true}
+              className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
+            />
+            <span>Enviar aviso de habilitacao por e-mail</span>
+          </label>
+        </div>
+        <div className="flex justify-end">
+          <SubmitButton className={btnPrimary}>{isEdit ? "Salvar responsavel" : "Cadastrar responsavel"}</SubmitButton>
+        </div>
+      </DialogForm>
+    </Dialog>
+  );
+}
+
+export function DeleteResponsavelModuloForm({
+  trigger,
+  responsavel,
+}: {
+  trigger: ReactNode;
+  responsavel: { id: string; municipioId: string; baseModuleId: string; nome: string };
+}) {
+  return (
+    <Dialog
+      trigger={trigger}
+      title="Deletar responsavel"
+      description="Esta acao remove o responsavel e desfaz o vinculo com o modulo correspondente."
+    >
+      <DialogForm action={deleteResponsavelModulo}>
+        <input type="hidden" name="id" value={responsavel.id} />
+        <input type="hidden" name="municipioId" value={responsavel.municipioId} />
+        <input type="hidden" name="baseModuleId" value={responsavel.baseModuleId} />
+        <input type="hidden" name="nome" value={responsavel.nome} />
+        <p className="text-sm text-app-muted-foreground">
+          Deseja realmente deletar {responsavel.nome}? Ao deletar, ele sera desvinculado do modulo.
+        </p>
+        <div className="flex justify-end">
+          <SubmitButton className={btnDanger}>Deletar responsavel</SubmitButton>
         </div>
       </DialogForm>
     </Dialog>
@@ -142,6 +253,24 @@ export function PropostaForm({ trigger, municipioId }: { trigger: ReactNode; mun
         <Field label="Observações">
           <textarea name="observacoes" rows={2} className={textareaCls} />
         </Field>
+        <div className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
+          <p className="text-sm font-semibold text-app-foreground">Anexo da proposta</p>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Tipo do documento">
+              <select name="documentoTipo" className={selectCls} defaultValue="proposta">
+                {DOCUMENTO_TIPOS.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Nome de exibicao">
+              <input name="documentoNome" className={inputCls} placeholder="Ex.: Proposta comercial" />
+            </Field>
+            <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
+              <input name="arquivo" type="file" accept={FILE_ACCEPT} className={inputCls} />
+            </Field>
+          </div>
+        </div>
         <div className="flex justify-end">
           <SubmitButton className={btnPrimary}>Registrar proposta</SubmitButton>
         </div>
@@ -200,9 +329,12 @@ export function DocumentoForm({
             </select>
           </Field>
           <Field label="Nome do arquivo">
-            <input name="nome" required className={inputCls} placeholder="contrato_assinado.pdf" />
+            <input name="nome" className={inputCls} placeholder="contrato_assinado.pdf" />
           </Field>
-          <Field label="Referência" hint="Caminho, link ou identificador do arquivo." className="sm:col-span-2">
+          <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
+            <input name="arquivo" type="file" required accept={FILE_ACCEPT} className={inputCls} />
+          </Field>
+          <Field label="Referência" hint="Opcional para documentos legados ou observacoes externas." className="sm:col-span-2">
             <input name="referencia" className={inputCls} placeholder="/arquivos/contrato_assinado.pdf" />
           </Field>
           {!contratoId && contratos && contratos.length > 0 ? (

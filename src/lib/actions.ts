@@ -6,16 +6,17 @@ import { db } from "@/db";
 import {
   aditivos,
   baseModules,
-  baseResponsaveis,
   bases,
   contratoModulos,
   contratos,
   documentos,
   municipios,
+  moduloResponsaveis,
   pendencias,
   propostas,
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
+import { deleteDocumentFile, fileFromFormData, uploadDocumentFile } from "@/lib/document-storage";
 import { logEvent, syncPendencias } from "@/lib/domain";
 
 const str = (fd: FormData, k: string) => {
@@ -33,6 +34,7 @@ const int = (fd: FormData, k: string) => {
   return Number.isNaN(n) ? null : n;
 };
 const done = () => revalidatePath("/", "layout");
+const newId = () => crypto.randomUUID();
 
 /* ---------------- Clientes ---------------- */
 
@@ -85,38 +87,16 @@ export async function createBase(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   const nome = req(fd, "nome");
-  const responsavelNome = str(fd, "responsavelNome");
-  const responsavelEmail = str(fd, "responsavelEmail");
-  const deveCriarResponsavel = !!responsavelNome || !!responsavelEmail;
-
-  if (deveCriarResponsavel && (!responsavelNome || !responsavelEmail)) {
-    throw new Error("Informe nome e e-mail do responsavel pela base, ou deixe os dois campos vazios.");
-  }
-
-  const row = await db.transaction(async (tx) => {
-    const [base] = await tx
-      .insert(bases)
-      .values({
-        municipioId,
-        nome,
-        tipo: str(fd, "tipo") ?? "outros",
-        cnpj: str(fd, "cnpj"),
-        observacoes: str(fd, "observacoes"),
-      })
-      .returning();
-
-    if (deveCriarResponsavel && responsavelNome && responsavelEmail) {
-      await tx.insert(baseResponsaveis).values({
-        municipioId,
-        baseId: base.id,
-        nome: responsavelNome,
-        email: responsavelEmail,
-        avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
-      });
-    }
-
-    return base;
-  });
+  const [row] = await db
+    .insert(bases)
+    .values({
+      municipioId,
+      nome,
+      tipo: str(fd, "tipo") ?? "outros",
+      cnpj: str(fd, "cnpj"),
+      observacoes: str(fd, "observacoes"),
+    })
+    .returning();
 
   await logEvent({ tipo: "base_criada", descricao: `Base ${nome} criada.`, municipioId, baseId: row.id });
   await syncPendencias();
@@ -130,12 +110,83 @@ export async function createModulo(fd: FormData) {
   const baseId = req(fd, "baseId");
   const municipioId = str(fd, "municipioId");
   const nome = req(fd, "nome");
-  const [row] = await db
-    .insert(baseModules)
-    .values({ baseId, nome, observacoes: str(fd, "observacoes") })
-    .returning();
+  const responsavelNome = str(fd, "responsavelNome");
+  const responsavelEmail = str(fd, "responsavelEmail");
+  const responsavelCelular = str(fd, "responsavelCelular");
+  const deveCriarResponsavel = !!responsavelNome || !!responsavelEmail || !!responsavelCelular;
+
+  if (deveCriarResponsavel && !responsavelNome) {
+    throw new Error("Informe o nome do responsavel pelo modulo, ou deixe todos os campos de responsavel vazios.");
+  }
+
+  const row = await db.transaction(async (tx) => {
+    const [modulo] = await tx
+      .insert(baseModules)
+      .values({ baseId, nome, observacoes: str(fd, "observacoes") })
+      .returning();
+
+    if (deveCriarResponsavel && responsavelNome && municipioId) {
+      await tx.insert(moduloResponsaveis).values({
+        municipioId,
+        baseModuleId: modulo.id,
+        nome: responsavelNome,
+        email: responsavelEmail,
+        celular: responsavelCelular,
+        avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
+      });
+    }
+
+    return modulo;
+  });
   await logEvent({ tipo: "modulo_criado", descricao: `Módulo ${nome} criado na base.`, municipioId, baseId, baseModuleId: row.id });
   await syncPendencias();
+  done();
+}
+
+export async function createResponsavelModulo(fd: FormData) {
+  await requireServerActionPermission();
+  const municipioId = req(fd, "municipioId");
+  const baseModuleId = req(fd, "baseModuleId");
+  const nome = req(fd, "nome");
+  await db.insert(moduloResponsaveis).values({
+    municipioId,
+    baseModuleId,
+    nome,
+    email: str(fd, "email"),
+    celular: str(fd, "celular"),
+    avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
+  });
+  await logEvent({ tipo: "responsavel_criado", descricao: `Responsavel ${nome} vinculado ao modulo.`, municipioId, baseModuleId });
+  done();
+}
+
+export async function updateResponsavelModulo(fd: FormData) {
+  await requireServerActionPermission();
+  const id = req(fd, "id");
+  const municipioId = str(fd, "municipioId");
+  const baseModuleId = str(fd, "baseModuleId");
+  const nome = req(fd, "nome");
+  await db
+    .update(moduloResponsaveis)
+    .set({
+      nome,
+      email: str(fd, "email"),
+      celular: str(fd, "celular"),
+      avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
+    })
+    .where(eq(moduloResponsaveis.id, id));
+  await logEvent({ tipo: "responsavel_atualizado", descricao: `Responsavel ${nome} atualizado.`, municipioId, baseModuleId });
+  done();
+}
+
+export async function deleteResponsavelModulo(fd: FormData) {
+  await requireServerActionPermission();
+  const id = req(fd, "id");
+  const municipioId = str(fd, "municipioId");
+  const baseModuleId = str(fd, "baseModuleId");
+  const nome = str(fd, "nome") ?? "Responsavel";
+  await db.delete(moduloResponsaveis).where(eq(moduloResponsaveis.id, id));
+  await logEvent({ tipo: "responsavel_removido", descricao: `${nome} removido e desvinculado do modulo.`, municipioId, baseModuleId });
   done();
 }
 
@@ -253,17 +304,43 @@ export async function reabilitarModulo(fd: FormData) {
 export async function createProposta(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
-  const [row] = await db
-    .insert(propostas)
-    .values({
-      municipioId,
-      tipo: str(fd, "tipo") ?? "formal",
-      data: str(fd, "data") ?? today(),
-      basesEnvolvidas: str(fd, "basesEnvolvidas"),
-      modulosEnvolvidos: str(fd, "modulosEnvolvidos"),
-      observacoes: str(fd, "observacoes"),
-    })
-    .returning();
+  const arquivo = fileFromFormData(fd);
+  let uploadedKey: string | null = null;
+  const row = await db.transaction(async (tx) => {
+    const [proposta] = await tx
+      .insert(propostas)
+      .values({
+        municipioId,
+        tipo: str(fd, "tipo") ?? "formal",
+        data: str(fd, "data") ?? today(),
+        basesEnvolvidas: str(fd, "basesEnvolvidas"),
+        modulosEnvolvidos: str(fd, "modulosEnvolvidos"),
+        observacoes: str(fd, "observacoes"),
+      })
+      .returning();
+
+    if (arquivo) {
+      const documentoId = newId();
+      const uploaded = await uploadDocumentFile(arquivo, municipioId, documentoId);
+      uploadedKey = uploaded.key;
+      await tx.insert(documentos).values({
+        id: documentoId,
+        municipioId,
+        propostaId: proposta.id,
+        tipo: str(fd, "documentoTipo") ?? "proposta",
+        nome: str(fd, "documentoNome") ?? uploaded.originalName,
+        storageKey: uploaded.key,
+        mimeType: uploaded.contentType,
+        tamanhoBytes: uploaded.size,
+        arquivoNomeOriginal: uploaded.originalName,
+      });
+    }
+
+    return proposta;
+  }).catch(async (error) => {
+    if (uploadedKey) await deleteDocumentFile(uploadedKey).catch(() => undefined);
+    throw error;
+  });
   await logEvent({ tipo: "proposta_criada", descricao: `Proposta criada (${row.tipo}).`, municipioId, data: row.data ?? today() });
   await syncPendencias();
   done();
@@ -285,21 +362,47 @@ export async function setPropostaSituacao(fd: FormData) {
 export async function createContrato(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
-  const [row] = await db
-    .insert(contratos)
-    .values({
-      municipioId,
-      numero: req(fd, "numero"),
-      modalidade: str(fd, "modalidade") ?? "outros",
-      processo: str(fd, "processo"),
-      propostaId: str(fd, "propostaId"),
-      dataAssinatura: str(fd, "dataAssinatura"),
-      dataInicio: str(fd, "dataInicio"),
-      dataFim: str(fd, "dataFim"),
-      situacao: str(fd, "situacao") ?? "aguardando_assinatura",
-      observacoes: str(fd, "observacoes"),
-    })
-    .returning();
+  const arquivo = fileFromFormData(fd);
+  let uploadedKey: string | null = null;
+  const row = await db.transaction(async (tx) => {
+    const [contrato] = await tx
+      .insert(contratos)
+      .values({
+        municipioId,
+        numero: req(fd, "numero"),
+        modalidade: str(fd, "modalidade") ?? "outros",
+        processo: str(fd, "processo"),
+        propostaId: str(fd, "propostaId"),
+        dataAssinatura: str(fd, "dataAssinatura"),
+        dataInicio: str(fd, "dataInicio"),
+        dataFim: str(fd, "dataFim"),
+        situacao: str(fd, "situacao") ?? "aguardando_assinatura",
+        observacoes: str(fd, "observacoes"),
+      })
+      .returning();
+
+    if (arquivo) {
+      const documentoId = newId();
+      const uploaded = await uploadDocumentFile(arquivo, municipioId, documentoId);
+      uploadedKey = uploaded.key;
+      await tx.insert(documentos).values({
+        id: documentoId,
+        municipioId,
+        contratoId: contrato.id,
+        tipo: str(fd, "documentoTipo") ?? "contrato",
+        nome: str(fd, "documentoNome") ?? uploaded.originalName,
+        storageKey: uploaded.key,
+        mimeType: uploaded.contentType,
+        tamanhoBytes: uploaded.size,
+        arquivoNomeOriginal: uploaded.originalName,
+      });
+    }
+
+    return contrato;
+  }).catch(async (error) => {
+    if (uploadedKey) await deleteDocumentFile(uploadedKey).catch(() => undefined);
+    throw error;
+  });
   await logEvent({ tipo: "contrato_criado", descricao: `Contrato ${row.numero} criado.`, municipioId, contratoId: row.id });
   await syncPendencias();
   done();
@@ -362,21 +465,39 @@ export async function createAditivo(fd: FormData) {
 
 export async function createDocumento(fd: FormData) {
   await requireServerActionPermission();
-  const [row] = await db
-    .insert(documentos)
-    .values({
-      tipo: str(fd, "tipo") ?? "outros",
-      nome: req(fd, "nome"),
-      referencia: str(fd, "referencia"),
-      observacoes: str(fd, "observacoes"),
-      municipioId: str(fd, "municipioId"),
-      baseId: str(fd, "baseId"),
-      baseModuleId: str(fd, "baseModuleId"),
-      contratoId: str(fd, "contratoId"),
-      eventoId: str(fd, "eventoId"),
-    })
-    .returning();
-  await logEvent({ tipo: "documento_anexado", descricao: `Documento anexado: ${row.nome} (${row.tipo}).`, municipioId: row.municipioId, baseId: row.baseId, baseModuleId: row.baseModuleId, contratoId: row.contratoId });
+  const municipioId = req(fd, "municipioId");
+  const arquivo = fileFromFormData(fd);
+  if (!arquivo) throw new Error("Selecione um arquivo para anexar.");
+
+  const documentoId = newId();
+  const uploaded = await uploadDocumentFile(arquivo, municipioId, documentoId);
+  let inserted = false;
+  try {
+    const [row] = await db
+      .insert(documentos)
+      .values({
+        id: documentoId,
+        municipioId,
+        baseId: str(fd, "baseId"),
+        baseModuleId: str(fd, "baseModuleId"),
+        propostaId: str(fd, "propostaId"),
+        contratoId: str(fd, "contratoId"),
+        eventoId: str(fd, "eventoId"),
+        tipo: str(fd, "tipo") ?? "outros",
+        nome: str(fd, "nome") ?? uploaded.originalName,
+        referencia: str(fd, "referencia"),
+        storageKey: uploaded.key,
+        mimeType: uploaded.contentType,
+        tamanhoBytes: uploaded.size,
+        arquivoNomeOriginal: uploaded.originalName,
+        observacoes: str(fd, "observacoes"),
+      })
+      .returning();
+    inserted = true;
+    await logEvent({ tipo: "documento_anexado", descricao: `Documento anexado: ${row.nome} (${row.tipo}).`, municipioId: row.municipioId, baseId: row.baseId, baseModuleId: row.baseModuleId, contratoId: row.contratoId });
+  } finally {
+    if (!inserted) await deleteDocumentFile(uploaded.key).catch(() => undefined);
+  }
   await syncPendencias();
   done();
 }
