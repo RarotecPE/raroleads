@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { BaseFormFields } from "@/components/base-form-fields";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import { FileInput } from "@/components/file-input";
+import { PhoneInput } from "@/components/phone-input";
 import {
   Field,
   btnDanger,
@@ -18,10 +20,10 @@ import {
   createResponsavelModulo,
   deleteResponsavelModulo,
   setPropostaSituacao,
+  updateBase,
   updateResponsavelModulo,
 } from "@/lib/actions";
 import {
-  BASE_TIPOS,
   DOCUMENTO_TIPOS,
   MODULE_CATALOG,
   PROPOSTA_SITUACOES,
@@ -30,37 +32,38 @@ import {
 
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.txt,.csv,.rtf,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.bmp";
 
-export function BaseForm({ trigger, municipioId }: { trigger: ReactNode; municipioId: string }) {
+interface BaseFormBase {
+  id: string;
+  nome: string;
+  tipo: string;
+  cnpj: string | null;
+  observacoes: string | null;
+}
+
+export function BaseForm({
+  trigger,
+  municipioId,
+  bases = [],
+  base,
+}: {
+  trigger: ReactNode;
+  municipioId: string;
+  bases?: BaseFormBase[];
+  base?: BaseFormBase;
+}) {
+  const isEdit = !!base;
   return (
     <Dialog
       trigger={trigger}
-      title="Nova base"
+      title={isEdit ? "Editar base" : "Nova base"}
       description="Base é a unidade operacional do cliente (Prefeitura, Saúde, Câmara…)."
     >
-      <DialogForm action={createBase}>
-        <input type="hidden" name="municipioId" value={municipioId} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Nome da base">
-            <input name="nome" required className={inputCls} placeholder="Ex.: Secretaria de Saúde" />
-          </Field>
-          <Field label="Tipo da base">
-            <select name="tipo" className={selectCls} defaultValue="Prefeitura">
-              {BASE_TIPOS.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="CNPJ" hint="Quando aplicável.">
-            <input name="cnpj" className={inputCls} placeholder="00.000.000/0000-00" />
-          </Field>
-        </div>
-        <Field label="Observações">
-          <textarea name="observacoes" rows={2} className={textareaCls} />
-        </Field>
-        <div className="flex justify-end">
-          <SubmitButton className={btnPrimary}>Cadastrar base</SubmitButton>
-        </div>
-      </DialogForm>
+      <BaseFormFields
+        action={isEdit ? updateBase : createBase}
+        municipioId={municipioId}
+        existingBases={bases.map((item) => ({ id: item.id, tipo: item.tipo }))}
+        base={base}
+      />
     </Dialog>
   );
 }
@@ -95,16 +98,16 @@ export function ModuloForm({
           <textarea name="observacoes" rows={2} className={textareaCls} />
         </Field>
         <div className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
-          <p className="text-sm font-semibold text-app-foreground">Responsavel inicial</p>
+          <p className="text-sm font-semibold text-app-foreground">Responsável</p>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Nome">
-              <input name="responsavelNome" className={inputCls} placeholder="Nome do responsavel" />
+              <input name="responsavelNome" className={inputCls} placeholder="Nome do responsável" />
             </Field>
             <Field label="E-mail">
               <input name="responsavelEmail" type="email" className={inputCls} placeholder="responsavel@cliente.gov.br" />
             </Field>
             <Field label="Celular">
-              <input name="responsavelCelular" className={inputCls} placeholder="(00) 00000-0000" />
+              <PhoneInput name="responsavelCelular" placeholder="(00)99999-9999" />
             </Field>
             <label className="flex items-start gap-2 self-end text-sm text-app-foreground">
               <input
@@ -113,7 +116,7 @@ export function ModuloForm({
                 defaultChecked
                 className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
               />
-              <span>Enviar aviso de habilitacao por e-mail</span>
+              <span>Enviar aviso de habilitação por e-mail</span>
             </label>
           </div>
         </div>
@@ -175,7 +178,7 @@ export function ResponsavelModuloForm({
             <input name="email" type="email" defaultValue={responsavel?.email ?? ""} className={inputCls} placeholder="responsavel@cliente.gov.br" />
           </Field>
           <Field label="Celular">
-            <input name="celular" defaultValue={responsavel?.celular ?? ""} className={inputCls} placeholder="(00) 00000-0000" />
+            <PhoneInput name="celular" defaultValue={responsavel?.celular} placeholder="(00)99999-9999" />
           </Field>
           <label className="flex items-start gap-2 self-end text-sm text-app-foreground">
             <input

@@ -8,6 +8,7 @@ import type { Base, BaseModule, Contrato, ModuloState } from "@/lib/domain";
 import { contratoView } from "@/lib/domain";
 import { DESABILITACAO_MOTIVOS, HABILITACAO_ORIGENS, optLabel } from "@/lib/constants";
 import { formatDate, formatDateTime, todayISO } from "@/lib/utils";
+import { formatPhone } from "@/lib/phone";
 import type { moduloResponsaveis } from "@/db/schema";
 
 type ModuloResponsavel = typeof moduloResponsaveis.$inferSelect;
@@ -306,7 +307,7 @@ export function ModuloDetailDialog({
                       ) : null}
                       {responsavel.celular ? (
                         <span className="inline-flex items-center gap-1">
-                          <Phone className="h-3.5 w-3.5" /> {responsavel.celular}
+                          <Phone className="h-3.5 w-3.5" /> {formatPhone(responsavel.celular)}
                         </span>
                       ) : null}
                       {!responsavel.email && !responsavel.celular ? <span>Contato pendente</span> : null}

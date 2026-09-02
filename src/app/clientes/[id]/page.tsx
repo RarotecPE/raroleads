@@ -38,6 +38,8 @@ import {
 import { resolverPendencia } from "@/lib/actions";
 import { contratoView, contratadoSet, moduloState, syncPendencias } from "@/lib/domain";
 import * as modActions from "@/lib/actions";
+import { formatCnpj } from "@/lib/cnpj";
+import { formatPhone } from "@/lib/phone";
 import { formatDate, formatDateTime, norm } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -163,6 +165,7 @@ export default async function ClienteDetailPage({
           right={
             <BaseForm
               municipioId={m.id}
+              bases={bs}
               trigger={
                 <button type="button" className={btnPrimary}>
                   <Plus className="h-4 w-4" /> Nova base
@@ -183,17 +186,29 @@ export default async function ClienteDetailPage({
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-sm font-bold text-app-foreground">{b.nome}</h3>
                       <Badge tone="muted">{b.tipo}</Badge>
-                      {!b.cnpj ? <Badge tone="warning">Sem CNPJ</Badge> : <span className="text-xs text-app-muted-foreground">{b.cnpj}</span>}
+                      {!b.cnpj ? <Badge tone="warning">Sem CNPJ</Badge> : <span className="text-xs text-app-muted-foreground">{formatCnpj(b.cnpj)}</span>}
                     </div>
-                    <ModuloForm
-                      baseId={b.id}
-                      municipioId={m.id}
-                      trigger={
-                        <button type="button" className={btnXsGhost}>
-                          <Plus className="h-3.5 w-3.5" /> Novo módulo
-                        </button>
-                      }
-                    />
+                    <div className="flex flex-wrap items-center gap-1">
+                      <BaseForm
+                        municipioId={m.id}
+                        bases={bs}
+                        base={b}
+                        trigger={
+                          <button type="button" className={btnXsGhost} title="Editar base" aria-label={`Editar base ${b.nome}`}>
+                            <Pencil className="h-3.5 w-3.5" /> Editar
+                          </button>
+                        }
+                      />
+                      <ModuloForm
+                        baseId={b.id}
+                        municipioId={m.id}
+                        trigger={
+                          <button type="button" className={btnXsGhost}>
+                            <Plus className="h-3.5 w-3.5" /> Novo módulo
+                          </button>
+                        }
+                      />
+                    </div>
                   </header>
                   <div className="flex flex-col divide-y divide-app-border">
                     {bMods.length === 0 ? (
@@ -253,8 +268,8 @@ export default async function ClienteDetailPage({
       {/* Responsaveis */}
       <Panel>
         <PanelHeader
-          title="Responsaveis"
-          description="Contatos vinculados aos modulos do cliente"
+          title="Responsáveis"
+          description="Contatos vinculados aos módulos do cliente"
           right={
             modulosResponsavelOptions.length > 0 ? (
               <ResponsavelModuloForm
@@ -262,20 +277,20 @@ export default async function ClienteDetailPage({
                 modulos={modulosResponsavelOptions}
                 trigger={
                   <button type="button" className={btnPrimary}>
-                    <Plus className="h-4 w-4" /> Novo responsavel
+                    <Plus className="h-4 w-4" /> Novo responsável
                   </button>
                 }
               />
             ) : (
               <button type="button" disabled className={btnPrimary}>
-                <Plus className="h-4 w-4" /> Novo responsavel
+                <Plus className="h-4 w-4" /> Novo responsável
               </button>
             )
           }
         />
         <div className="flex flex-col gap-2 p-3 sm:p-4">
           {responsaveis.length === 0 ? (
-            <Empty title="Nenhum responsavel" description="Cadastre responsaveis depois de criar modulos." />
+            <Empty title="Nenhum responsável" description="Cadastre responsáveis depois de criar módulos." />
           ) : (
             responsaveis.map((responsavel) => {
               const modulo = modById.get(responsavel.baseModuleId);
@@ -297,7 +312,7 @@ export default async function ClienteDetailPage({
                       ) : null}
                       {responsavel.celular ? (
                         <span className="inline-flex items-center gap-1">
-                          <Phone className="h-3.5 w-3.5" /> {responsavel.celular}
+                          <Phone className="h-3.5 w-3.5" /> {formatPhone(responsavel.celular)}
                         </span>
                       ) : null}
                       {!hasContato ? <span>Contato pendente</span> : null}
@@ -309,7 +324,7 @@ export default async function ClienteDetailPage({
                       modulos={modulosResponsavelOptions}
                       responsavel={responsavel}
                       trigger={
-                        <button type="button" className={btnXsGhost} title="Editar responsavel" aria-label="Editar responsavel">
+                        <button type="button" className={btnXsGhost} title="Editar responsável" aria-label="Editar responsável">
                           <Pencil className="h-3.5 w-3.5" /> Editar
                         </button>
                       }
@@ -317,7 +332,7 @@ export default async function ClienteDetailPage({
                     <DeleteResponsavelModuloForm
                       responsavel={responsavel}
                       trigger={
-                        <button type="button" className={btnXsGhost} title="Deletar responsavel" aria-label="Deletar responsavel">
+                        <button type="button" className={btnXsGhost} title="Deletar responsável" aria-label="Deletar responsável">
                           <Trash2 className="h-3.5 w-3.5 text-app-danger" /> Deletar
                         </button>
                       }
@@ -498,7 +513,7 @@ export default async function ClienteDetailPage({
 
         {/* Linha do tempo */}
         <Panel>
-          <PanelHeader title="Linha do tempo" description="Toda ação relevante gera evento histórico" />
+          <PanelHeader title="Linha do tempo" description="Toda ação relevante gera um evento" />
           <div className="flex max-h-[28rem] flex-col gap-0 overflow-y-auto p-3 sm:p-4">
             {evts.length === 0 ? (
               <Empty title="Sem eventos registrados" />

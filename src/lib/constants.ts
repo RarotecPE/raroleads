@@ -158,6 +158,7 @@ export const EVENTO_TIPOS: Record<string, string> = {
   municipio_criado: "Cliente criado",
   municipio_atualizado: "Cliente atualizado",
   base_criada: "Base criada",
+  base_atualizada: "Base atualizada",
   modulo_criado: "Módulo criado",
   habilitacao_solicitada: "Habilitação solicitada",
   habilitado: "Módulo habilitado",

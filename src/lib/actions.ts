@@ -16,12 +16,18 @@ import {
   propostas,
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
+import { cnpjDigits } from "@/lib/cnpj";
 import { deleteDocumentFile, fileFromFormData, uploadDocumentFile } from "@/lib/document-storage";
 import { logEvent, syncPendencias } from "@/lib/domain";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k);
   return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+};
+const phoneDigits = (fd: FormData, k: string) => str(fd, k)?.replace(/\D/g, "").slice(0, 11) ?? null;
+const cnpjValue = (fd: FormData, k: string) => {
+  const digits = cnpjDigits(str(fd, k) ?? "");
+  return digits || null;
 };
 const req = (fd: FormData, k: string) => {
   const v = str(fd, k);
@@ -93,12 +99,32 @@ export async function createBase(fd: FormData) {
       municipioId,
       nome,
       tipo: str(fd, "tipo") ?? "outros",
-      cnpj: str(fd, "cnpj"),
+      cnpj: cnpjValue(fd, "cnpj"),
       observacoes: str(fd, "observacoes"),
     })
     .returning();
 
   await logEvent({ tipo: "base_criada", descricao: `Base ${nome} criada.`, municipioId, baseId: row.id });
+  await syncPendencias();
+  done();
+}
+
+export async function updateBase(fd: FormData) {
+  await requireServerActionPermission();
+  const id = req(fd, "id");
+  const municipioId = req(fd, "municipioId");
+  const nome = req(fd, "nome");
+  await db
+    .update(bases)
+    .set({
+      nome,
+      tipo: str(fd, "tipo") ?? "outros",
+      cnpj: cnpjValue(fd, "cnpj"),
+      observacoes: str(fd, "observacoes"),
+    })
+    .where(eq(bases.id, id));
+
+  await logEvent({ tipo: "base_atualizada", descricao: `Base ${nome} atualizada.`, municipioId, baseId: id });
   await syncPendencias();
   done();
 }
@@ -112,7 +138,7 @@ export async function createModulo(fd: FormData) {
   const nome = req(fd, "nome");
   const responsavelNome = str(fd, "responsavelNome");
   const responsavelEmail = str(fd, "responsavelEmail");
-  const responsavelCelular = str(fd, "responsavelCelular");
+  const responsavelCelular = phoneDigits(fd, "responsavelCelular");
   const deveCriarResponsavel = !!responsavelNome || !!responsavelEmail || !!responsavelCelular;
 
   if (deveCriarResponsavel && !responsavelNome) {
@@ -153,7 +179,7 @@ export async function createResponsavelModulo(fd: FormData) {
     baseModuleId,
     nome,
     email: str(fd, "email"),
-    celular: str(fd, "celular"),
+    celular: phoneDigits(fd, "celular"),
     avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
   });
   await logEvent({ tipo: "responsavel_criado", descricao: `Responsavel ${nome} vinculado ao modulo.`, municipioId, baseModuleId });
@@ -171,7 +197,7 @@ export async function updateResponsavelModulo(fd: FormData) {
     .set({
       nome,
       email: str(fd, "email"),
-      celular: str(fd, "celular"),
+      celular: phoneDigits(fd, "celular"),
       avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
     })
     .where(eq(moduloResponsaveis.id, id));

@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
   type FormEvent,
+  type FormEventHandler,
   type ReactNode,
 } from "react";
 import { useFormStatus } from "react-dom";
@@ -96,15 +97,22 @@ export function DialogForm({
   action,
   children,
   className,
+  id,
+  onSubmit,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   children: ReactNode;
   className?: string;
+  id?: string;
+  onSubmit?: FormEventHandler<HTMLFormElement>;
 }) {
   const { close } = useContext(DialogCtx);
-  const onSubmit = () => close();
+  const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+    onSubmit?.(event);
+    if (!event.defaultPrevented) close();
+  };
   return (
-    <form action={action} onSubmit={onSubmit as (e: FormEvent) => void} className={cn("flex flex-col gap-4", className)}>
+    <form id={id} action={action} onSubmit={handleSubmit as (e: FormEvent) => void} className={cn("flex flex-col gap-4", className)}>
       {children}
     </form>
   );
