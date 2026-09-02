@@ -30,6 +30,7 @@ interface ModuloDetailDialogProps {
   contratos: Contrato[];
   responsaveis: ModuloResponsavel[];
   actions: ModuloActions;
+  readOnly?: boolean;
 }
 
 export function ModuloDetailDialog({
@@ -41,6 +42,7 @@ export function ModuloDetailDialog({
   contratos,
   responsaveis,
   actions,
+  readOnly = false,
 }: ModuloDetailDialogProps) {
   const ativo = !modulo.desabilitadoAt;
   const habilitado = !!modulo.habilitadoAt;
@@ -71,6 +73,11 @@ export function ModuloDetailDialog({
             <YesNo yes={!!modulo.execucaoInicio && !modulo.desabilitadoAt} label="Execucao" />
           </div>
         </div>
+        {readOnly ? (
+          <p className="rounded-app-md border border-app-border bg-app-surface px-3 py-2 text-xs font-medium text-app-muted-foreground">
+            Cliente encerrado. As ações operacionais deste módulo estão bloqueadas.
+          </p>
+        ) : null}
 
         <section className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
           <h3 className="text-sm font-bold text-app-foreground">Detalhes operacionais</h3>
@@ -81,7 +88,7 @@ export function ModuloDetailDialog({
             <DetailAction
               label="Habilitacao"
               value={modulo.habilitadoAt ? formatDate(modulo.habilitadoAt) : "Não habilitado"}
-              action={ativo && !habilitado ? (
+              action={!readOnly && ativo && !habilitado ? (
                 <Dialog
                   title="Habilitar módulo"
                   description="Registra a solicitação e o momento em que o módulo passa a existir operacionalmente."
@@ -125,7 +132,7 @@ export function ModuloDetailDialog({
                     }`
                   : "Não iniciada"
               }
-              action={ativo && habilitado ? (
+              action={!readOnly && ativo && habilitado ? (
                 <Dialog
                   title="Período de Migração"
                   description="Período em que o módulo esteve em processo de migração."
@@ -156,7 +163,7 @@ export function ModuloDetailDialog({
             <DetailAction
               label="Implantacao"
               value=""
-              action={ativo && habilitado ? (
+              action={!readOnly && ativo && habilitado ? (
                 <ImplantacaoStatusForm
                   id={modulo.id}
                   municipioId={municipioId}
@@ -168,7 +175,7 @@ export function ModuloDetailDialog({
             <DetailAction
               label="Execucao"
               value={modulo.execucaoInicio ? `Desde ${formatDate(modulo.execucaoInicio)}` : "Não iniciada"}
-              action={ativo && habilitado && !modulo.execucaoInicio ? (
+              action={!readOnly && ativo && habilitado && !modulo.execucaoInicio ? (
                 <Dialog
                   title="Iniciar execução"
                   description="Data em que o cliente iniciou efetivamente a utilização do módulo (diferente da habilitação)."
@@ -199,7 +206,7 @@ export function ModuloDetailDialog({
                   : "Modulo ativo"
               }
               action={
-                ativo && habilitado ? (
+                !readOnly && ativo && habilitado ? (
                   <Dialog
                     title="Desabilitar módulo"
                     description="O histórico anterior nunca é apagado — a desativação vira um evento."
@@ -233,7 +240,7 @@ export function ModuloDetailDialog({
                       </div>
                     </DialogForm>
                   </Dialog>
-                ) : !ativo ? (
+                ) : !readOnly && !ativo ? (
                   <form action={actions.reabilitar}>
                     <input type="hidden" name="id" value={modulo.id} />
                     <input type="hidden" name="municipioId" value={municipioId} />

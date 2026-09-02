@@ -72,6 +72,7 @@ export default async function ContratoDetailPage({
 
   const view = contratoView(c);
   const linked = new Set(vinculos.map((v) => v.baseModuleId));
+  const clienteEncerrado = m?.situacao === "cliente_encerrado";
 
   return (
     <div className="flex flex-col gap-5">
@@ -91,6 +92,7 @@ export default async function ContratoDetailPage({
             </p>
             {c.observacoes ? <p className="mt-2 max-w-2xl text-sm text-app-muted-foreground">{c.observacoes}</p> : null}
           </div>
+          {clienteEncerrado ? null : (
           <form action={setContratoSituacao} className="flex items-center gap-2">
             <input type="hidden" name="id" value={c.id} />
             <label className="sr-only" htmlFor="situacao">Situação do contrato</label>
@@ -103,6 +105,7 @@ export default async function ContratoDetailPage({
               <Save className="h-4 w-4" /> Atualizar situação
             </SubmitButton>
           </form>
+          )}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Assinatura" value={<span className="text-base">{formatDate(c.dataAssinatura)}</span>} />
@@ -110,6 +113,11 @@ export default async function ContratoDetailPage({
           <Stat label="Vigência final" value={<span className="text-base">{formatDate(c.dataFim)}</span>} tone={view.daysLeft !== null && view.daysLeft <= 60 ? "warning" : "muted"} />
           <Stat label="Módulos vinculados" value={linked.size} tone="primary" />
         </div>
+        {clienteEncerrado ? (
+          <div className="mt-4 rounded-app-md border border-app-border bg-app-surface-elevated/50 px-3 py-2.5 text-xs font-medium text-app-muted-foreground">
+            Cliente encerrado. Alterações operacionais deste contrato estão bloqueadas.
+          </div>
+        ) : null}
       </Panel>
 
       {/* Cobertura granular: bases e módulos contemplados */}
@@ -136,6 +144,9 @@ export default async function ContratoDetailPage({
                         return (
                           <div key={mo.id} className="flex items-center justify-between gap-3 rounded-app-md bg-app-surface px-3 py-2">
                             <span className="text-sm text-app-foreground">{mo.nome}</span>
+                            {clienteEncerrado ? (
+                              <Badge tone={isLinked ? "success" : "muted"}>{isLinked ? "Vinculado" : "Nao vinculado"}</Badge>
+                            ) : (
                             <form action={isLinked ? desvincularModulo : vincularModulo}>
                               <input type="hidden" name="contratoId" value={c.id} />
                               <input type="hidden" name="baseModuleId" value={mo.id} />
@@ -156,6 +167,7 @@ export default async function ContratoDetailPage({
                                 )}
                               </button>
                             </form>
+                            )}
                           </div>
                         );
                       })
@@ -175,6 +187,7 @@ export default async function ContratoDetailPage({
             title="Aditivos"
             description="O histórico original nunca é apagado"
             right={
+              clienteEncerrado ? null : (
               <Dialog
                 title="Novo aditivo"
                 description="Inclusão/exclusão de módulo, prazo, valor ou alteração contratual."
@@ -224,6 +237,7 @@ export default async function ContratoDetailPage({
                   </div>
                 </DialogForm>
               </Dialog>
+              )
             }
           />
           <div className="flex flex-col gap-2 p-3 sm:p-4">
@@ -248,6 +262,7 @@ export default async function ContratoDetailPage({
           <PanelHeader
             title="Documentos do contrato"
             right={
+              clienteEncerrado ? null : (
               <DocumentoForm
                 municipioId={c.municipioId}
                 contratoId={c.id}
@@ -257,6 +272,7 @@ export default async function ContratoDetailPage({
                   </button>
                 }
               />
+              )
             }
           />
           <div className="flex flex-col gap-2 p-3 sm:p-4">

@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
 import { cnpjDigits } from "@/lib/cnpj";
+import { optLabel } from "@/lib/constants";
 import { deleteDocumentFile, fileFromFormData, uploadDocumentFile } from "@/lib/document-storage";
 import { logEvent, syncPendencias } from "@/lib/domain";
 
@@ -41,6 +42,130 @@ const int = (fd: FormData, k: string) => {
 };
 const done = () => revalidatePath("/", "layout");
 const newId = () => crypto.randomUUID();
+const CLIENTE_ENCERRADO = "cliente_encerrado";
+
+async function assertClienteOperacional(municipioId: string | null | undefined) {
+  if (!municipioId) return;
+  const [cliente] = await db.select().from(municipios).where(eq(municipios.id, municipioId));
+  if (cliente?.situacao === CLIENTE_ENCERRADO) {
+    throw new Error("Cliente encerrado. Reabra o cadastro do cliente antes de realizar novas alterações operacionais.");
+  }
+}
+
+async function assertBaseOperacional(baseId: string) {
+  const [base] = await db.select().from(bases).where(eq(bases.id, baseId));
+  if (!base) {
+    throw new Error("Base nao encontrada.");
+  }
+  await assertClienteOperacional(base?.municipioId);
+  return base;
+}
+
+async function assertModuloOperacional(baseModuleId: string) {
+  const [modulo] = await db.select().from(baseModules).where(eq(baseModules.id, baseModuleId));
+  if (!modulo) {
+    throw new Error("Modulo nao encontrado.");
+  }
+  await assertBaseOperacional(modulo.baseId);
+  return modulo;
+}
+
+async function assertContratoOperacional(contratoId: string) {
+  const [contrato] = await db.select().from(contratos).where(eq(contratos.id, contratoId));
+  if (!contrato) {
+    throw new Error("Contrato nao encontrado.");
+  }
+  await assertClienteOperacional(contrato.municipioId);
+  return contrato;
+}
+
+async function assertPropostaOperacional(propostaId: string) {
+  const [proposta] = await db.select().from(propostas).where(eq(propostas.id, propostaId));
+  if (!proposta) {
+    throw new Error("Proposta nao encontrada.");
+  }
+  await assertClienteOperacional(proposta.municipioId);
+  return proposta;
+}
+
+async function assertResponsavelOperacional(responsavelId: string) {
+  const [responsavel] = await db.select().from(moduloResponsaveis).where(eq(moduloResponsaveis.id, responsavelId));
+  if (!responsavel) {
+    throw new Error("Responsavel nao encontrado.");
+  }
+  await assertClienteOperacional(responsavel.municipioId);
+  return responsavel;
+}
+
+async function assertPendenciaOperacional(pendenciaId: string) {
+  const [pendencia] = await db.select().from(pendencias).where(eq(pendencias.id, pendenciaId));
+  if (!pendencia) {
+    throw new Error("Pendencia nao encontrada.");
+  }
+  await assertClienteOperacional(pendencia.municipioId);
+  return pendencia;
+}
+
+async function assertDocumentoContextoOperacional(fd: FormData, municipioId: string) {
+  await assertClienteOperacional(municipioId);
+  const baseId = str(fd, "baseId");
+  const baseModuleId = str(fd, "baseModuleId");
+  const propostaId = str(fd, "propostaId");
+  const contratoId = str(fd, "contratoId");
+  if (baseId) await assertBaseOperacional(baseId);
+  if (baseModuleId) await assertModuloOperacional(baseModuleId);
+  if (propostaId) await assertPropostaOperacional(propostaId);
+  if (contratoId) await assertContratoOperacional(contratoId);
+}
+
+function sameText(value: string | null | undefined) {
+  return value?.trim() || null;
+}
+
+function describeValue(value: string | number | null | undefined, empty = "nao informado") {
+  return value === null || value === undefined || value === "" ? empty : String(value);
+}
+
+function clienteChangeDescription(
+  before: typeof municipios.$inferSelect,
+  after: {
+    clienteNome: string;
+    municipio: string;
+    uf: string;
+    codigoIbge: string | null;
+    populacao: number | null;
+    situacao: string;
+    dadosAdministrativos: string | null;
+    observacoes: string | null;
+  },
+) {
+  const changes: string[] = [];
+  if (before.clienteNome !== after.clienteNome) {
+    changes.push(`Nome do cliente de "${before.clienteNome}" para "${after.clienteNome}"`);
+  }
+  if (before.municipio !== after.municipio) {
+    changes.push(`Municipio de "${before.municipio}" para "${after.municipio}"`);
+  }
+  if (before.uf !== after.uf) {
+    changes.push(`UF de ${before.uf} para ${after.uf}`);
+  }
+  if (sameText(before.codigoIbge) !== sameText(after.codigoIbge)) {
+    changes.push(`Codigo IBGE de ${describeValue(before.codigoIbge)} para ${describeValue(after.codigoIbge)}`);
+  }
+  if (before.populacao !== after.populacao) {
+    changes.push(`Populacao estimada de ${describeValue(before.populacao)} para ${describeValue(after.populacao)}`);
+  }
+  if (before.situacao !== after.situacao) {
+    changes.push(`Situacao de ${optLabel(before.situacao)} para ${optLabel(after.situacao)}`);
+  }
+  if (sameText(before.dadosAdministrativos) !== sameText(after.dadosAdministrativos)) {
+    changes.push("Dados administrativos alterados");
+  }
+  if (sameText(before.observacoes) !== sameText(after.observacoes)) {
+    changes.push("Observacoes alteradas");
+  }
+  return changes.length ? `Cliente atualizado: ${changes.join("; ")}.` : null;
+}
 
 /* ---------------- Clientes ---------------- */
 
@@ -69,20 +194,28 @@ export async function createMunicipio(fd: FormData) {
 export async function updateMunicipio(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
+  const [before] = await db.select().from(municipios).where(eq(municipios.id, id));
+  if (!before) {
+    throw new Error("Cliente nao encontrado.");
+  }
+  const next = {
+    clienteNome: req(fd, "clienteNome"),
+    municipio: req(fd, "municipio"),
+    uf: req(fd, "uf").toUpperCase().slice(0, 2),
+    codigoIbge: str(fd, "codigoIbge"),
+    populacao: int(fd, "populacao"),
+    situacao: str(fd, "situacao") ?? "prospect",
+    dadosAdministrativos: str(fd, "dadosAdministrativos"),
+    observacoes: str(fd, "observacoes"),
+  };
   await db
     .update(municipios)
-    .set({
-      clienteNome: req(fd, "clienteNome"),
-      municipio: req(fd, "municipio"),
-      uf: req(fd, "uf").toUpperCase().slice(0, 2),
-      codigoIbge: str(fd, "codigoIbge"),
-      populacao: int(fd, "populacao"),
-      situacao: str(fd, "situacao") ?? "prospect",
-      dadosAdministrativos: str(fd, "dadosAdministrativos"),
-      observacoes: str(fd, "observacoes"),
-    })
+    .set(next)
     .where(eq(municipios.id, id));
-  await logEvent({ tipo: "municipio_atualizado", descricao: "Dados do cliente atualizados.", municipioId: id });
+  const descricao = clienteChangeDescription(before, next);
+  if (descricao) {
+    await logEvent({ tipo: "municipio_atualizado", descricao, municipioId: id });
+  }
   await syncPendencias();
   done();
 }
@@ -92,6 +225,7 @@ export async function updateMunicipio(fd: FormData) {
 export async function createBase(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
+  await assertClienteOperacional(municipioId);
   const nome = req(fd, "nome");
   const [row] = await db
     .insert(bases)
@@ -112,7 +246,8 @@ export async function createBase(fd: FormData) {
 export async function updateBase(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
-  const municipioId = req(fd, "municipioId");
+  const base = await assertBaseOperacional(id);
+  const municipioId = base.municipioId;
   const nome = req(fd, "nome");
   await db
     .update(bases)
@@ -134,6 +269,7 @@ export async function updateBase(fd: FormData) {
 export async function createModulo(fd: FormData) {
   await requireServerActionPermission();
   const baseId = req(fd, "baseId");
+  await assertBaseOperacional(baseId);
   const municipioId = str(fd, "municipioId");
   const nome = req(fd, "nome");
   const responsavelNome = str(fd, "responsavelNome");
@@ -173,6 +309,8 @@ export async function createResponsavelModulo(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   const baseModuleId = req(fd, "baseModuleId");
+  await assertModuloOperacional(baseModuleId);
+  await assertClienteOperacional(municipioId);
   const nome = req(fd, "nome");
   await db.insert(moduloResponsaveis).values({
     municipioId,
@@ -189,8 +327,9 @@ export async function createResponsavelModulo(fd: FormData) {
 export async function updateResponsavelModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
-  const municipioId = str(fd, "municipioId");
-  const baseModuleId = str(fd, "baseModuleId");
+  const responsavel = await assertResponsavelOperacional(id);
+  const municipioId = responsavel.municipioId;
+  const baseModuleId = responsavel.baseModuleId;
   const nome = req(fd, "nome");
   await db
     .update(moduloResponsaveis)
@@ -208,8 +347,9 @@ export async function updateResponsavelModulo(fd: FormData) {
 export async function deleteResponsavelModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
-  const municipioId = str(fd, "municipioId");
-  const baseModuleId = str(fd, "baseModuleId");
+  const responsavel = await assertResponsavelOperacional(id);
+  const municipioId = responsavel.municipioId;
+  const baseModuleId = responsavel.baseModuleId;
   const nome = str(fd, "nome") ?? "Responsavel";
   await db.delete(moduloResponsaveis).where(eq(moduloResponsaveis.id, id));
   await logEvent({ tipo: "responsavel_removido", descricao: `${nome} removido e desvinculado do modulo.`, municipioId, baseModuleId });
@@ -219,6 +359,7 @@ export async function deleteResponsavelModulo(fd: FormData) {
 export async function habilitarModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
+  await assertModuloOperacional(id);
   const municipioId = str(fd, "municipioId");
   const solicitacaoAt = str(fd, "solicitacaoAt");
   const habilitadoAt = req(fd, "habilitadoAt");
@@ -251,6 +392,7 @@ export async function habilitarModulo(fd: FormData) {
 export async function migracaoModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
+  await assertModuloOperacional(id);
   const municipioId = str(fd, "municipioId");
   const inicio = str(fd, "migracaoInicio");
   const fim = str(fd, "migracaoFim");
@@ -271,6 +413,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 export async function implantacaoModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
+  await assertModuloOperacional(id);
   const municipioId = str(fd, "municipioId");
   const status = req(fd, "implantacaoStatus");
   await db.update(baseModules).set({ implantacaoStatus: status }).where(eq(baseModules.id, id));
@@ -282,6 +425,7 @@ export async function implantacaoModulo(fd: FormData) {
 export async function execucaoModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
+  await assertModuloOperacional(id);
   const municipioId = str(fd, "municipioId");
   const data = str(fd, "execucaoInicio") ?? today();
   await db.update(baseModules).set({ execucaoInicio: data }).where(eq(baseModules.id, id));
@@ -293,6 +437,7 @@ export async function execucaoModulo(fd: FormData) {
 export async function desabilitarModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
+  await assertModuloOperacional(id);
   const municipioId = str(fd, "municipioId");
   const data = str(fd, "data") ?? today();
   const motivo = req(fd, "motivo");
@@ -315,6 +460,7 @@ export async function desabilitarModulo(fd: FormData) {
 export async function reabilitarModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
+  await assertModuloOperacional(id);
   const municipioId = str(fd, "municipioId");
   await db
     .update(baseModules)
@@ -330,6 +476,7 @@ export async function reabilitarModulo(fd: FormData) {
 export async function createProposta(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
+  await assertClienteOperacional(municipioId);
   const arquivo = fileFromFormData(fd);
   let uploadedKey: string | null = null;
   const row = await db.transaction(async (tx) => {
@@ -376,8 +523,8 @@ export async function setPropostaSituacao(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
   const situacao = req(fd, "situacao");
+  const p = await assertPropostaOperacional(id);
   await db.update(propostas).set({ situacao }).where(eq(propostas.id, id));
-  const [p] = await db.select().from(propostas).where(eq(propostas.id, id));
   await logEvent({ tipo: "proposta_situacao", descricao: `Proposta marcada como ${situacao}.`, municipioId: p?.municipioId ?? null });
   await syncPendencias();
   done();
@@ -388,6 +535,7 @@ export async function setPropostaSituacao(fd: FormData) {
 export async function createContrato(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
+  await assertClienteOperacional(municipioId);
   const arquivo = fileFromFormData(fd);
   let uploadedKey: string | null = null;
   const row = await db.transaction(async (tx) => {
@@ -438,8 +586,8 @@ export async function setContratoSituacao(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
   const situacao = req(fd, "situacao");
+  const c = await assertContratoOperacional(id);
   await db.update(contratos).set({ situacao }).where(eq(contratos.id, id));
-  const [c] = await db.select().from(contratos).where(eq(contratos.id, id));
   await logEvent({ tipo: "contrato_situacao", descricao: `Contrato ${c?.numero ?? id} marcado como ${situacao}.`, municipioId: c?.municipioId ?? null, contratoId: id });
   await syncPendencias();
   done();
@@ -449,8 +597,9 @@ export async function vincularModulo(fd: FormData) {
   await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
   const baseModuleId = req(fd, "baseModuleId");
+  const c = await assertContratoOperacional(contratoId);
+  await assertModuloOperacional(baseModuleId);
   await db.insert(contratoModulos).values({ contratoId, baseModuleId }).onConflictDoNothing();
-  const [c] = await db.select().from(contratos).where(eq(contratos.id, contratoId));
   await logEvent({ tipo: "modulo_vinculado", descricao: "Módulo vinculado ao contrato.", municipioId: c?.municipioId ?? null, baseModuleId, contratoId });
   await syncPendencias();
   done();
@@ -460,11 +609,11 @@ export async function desvincularModulo(fd: FormData) {
   await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
   const baseModuleId = req(fd, "baseModuleId");
-  const { and } = await import("drizzle-orm");
+  const c = await assertContratoOperacional(contratoId);
+  await assertModuloOperacional(baseModuleId);
   await db
     .delete(contratoModulos)
     .where(and(eq(contratoModulos.contratoId, contratoId), eq(contratoModulos.baseModuleId, baseModuleId)));
-  const [c] = await db.select().from(contratos).where(eq(contratos.id, contratoId));
   await logEvent({ tipo: "modulo_desvinculado", descricao: "Módulo desvinculado do contrato (histórico do vínculo preservado no evento).", municipioId: c?.municipioId ?? null, baseModuleId, contratoId });
   await syncPendencias();
   done();
@@ -473,8 +622,7 @@ export async function desvincularModulo(fd: FormData) {
 export async function createAditivo(fd: FormData) {
   await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
-  const [c] = await db.select().from(contratos).where(eq(contratos.id, contratoId));
-  if (!c) throw new Error("Contrato nao encontrado.");
+  const c = await assertContratoOperacional(contratoId);
   const arquivo = fileFromFormData(fd);
   let uploadedKey: string | null = null;
   const row = await db.transaction(async (tx) => {
@@ -520,6 +668,7 @@ export async function createAditivo(fd: FormData) {
 export async function createDocumento(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
+  await assertDocumentoContextoOperacional(fd, municipioId);
   const arquivo = fileFromFormData(fd);
   if (!arquivo) throw new Error("Selecione um arquivo para anexar.");
 
@@ -561,14 +710,15 @@ export async function createDocumento(fd: FormData) {
 export async function resolverPendencia(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
+  const p = await assertPendenciaOperacional(id);
   await db.update(pendencias).set({ situacao: "resolvida", resolvedAt: new Date() }).where(eq(pendencias.id, id));
-  const [p] = await db.select().from(pendencias).where(eq(pendencias.id, id));
   await logEvent({ tipo: "pendencia_resolvida", descricao: `Pendência resolvida manualmente: ${p?.descricao ?? id}`, municipioId: p?.municipioId ?? null, baseId: p?.baseId ?? null, baseModuleId: p?.baseModuleId ?? null, contratoId: p?.contratoId ?? null });
   done();
 }
 
 export async function createPendencia(fd: FormData) {
   await requireServerActionPermission();
+  await assertClienteOperacional(req(fd, "municipioId"));
   await db.insert(pendencias).values({
     tipo: "manual",
     descricao: req(fd, "descricao"),
