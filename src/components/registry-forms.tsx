@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
+import { FileInput } from "@/components/file-input";
 import {
   Field,
   btnDanger,
@@ -267,7 +268,7 @@ export function PropostaForm({ trigger, municipioId }: { trigger: ReactNode; mun
               <input name="documentoNome" className={inputCls} placeholder="Ex.: Proposta comercial" />
             </Field>
             <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
-              <input name="arquivo" type="file" accept={FILE_ACCEPT} className={inputCls} />
+              <FileInput name="arquivo" accept={FILE_ACCEPT} />
             </Field>
           </div>
         </div>
@@ -332,7 +333,7 @@ export function DocumentoForm({
             <input name="nome" className={inputCls} placeholder="contrato_assinado.pdf" />
           </Field>
           <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
-            <input name="arquivo" type="file" required accept={FILE_ACCEPT} className={inputCls} />
+            <FileInput name="arquivo" required accept={FILE_ACCEPT} />
           </Field>
           <Field label="Referência" hint="Opcional para documentos legados ou observacoes externas." className="sm:col-span-2">
             <input name="referencia" className={inputCls} placeholder="/arquivos/contrato_assinado.pdf" />

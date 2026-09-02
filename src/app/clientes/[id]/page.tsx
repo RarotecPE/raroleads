@@ -16,7 +16,7 @@ import {
   propostas,
 } from "@/db/schema";
 import { ContratoForm } from "@/components/contrato-form";
-import { ModuloActions } from "@/components/modulo-actions";
+import { ModuloDetailDialog } from "@/components/modulo-detail-dialog";
 import { ClienteForm } from "@/components/cliente-form";
 import {
   BaseForm,
@@ -91,6 +91,14 @@ export default async function ClienteDetailPage({
     list.push(responsavel);
     responsaveisByModuloId.set(responsavel.baseModuleId, list);
   }
+  const moduloActionHandlers = {
+    habilitar: modActions.habilitarModulo,
+    migracao: modActions.migracaoModulo,
+    implantacao: modActions.implantacaoModulo,
+    execucao: modActions.execucaoModulo,
+    desabilitar: modActions.desabilitarModulo,
+    reabilitar: modActions.reabilitarModulo,
+  };
 
   const owned = new Set(mods.map((mo) => norm(mo.nome)));
   const oportunidades =
@@ -195,22 +203,24 @@ export default async function ClienteDetailPage({
                         const contratado = conSet.has(mo.id);
                         const state = moduloState(mo, contratado);
                         const rMods = responsaveisByModuloId.get(mo.id) ?? [];
-                        const primeiroResponsavel = rMods[0];
-                        const outrosResponsaveis = rMods.length - 1;
+                        const contratosVinculados = cms
+                          .filter((cm) => cm.baseModuleId === mo.id)
+                          .map((cm) => contratoById.get(cm.contratoId))
+                          .filter((contrato): contrato is NonNullable<typeof contrato> => !!contrato);
                         return (
                           <div key={mo.id} className="flex flex-col gap-2.5 px-4 py-3.5">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-app-foreground">{mo.nome}</span>
+                              <ModuloDetailDialog
+                                modulo={mo}
+                                base={b}
+                                municipioId={m.id}
+                                state={state}
+                                contratado={contratado}
+                                contratos={contratosVinculados}
+                                responsaveis={rMods}
+                                actions={moduloActionHandlers}
+                              />
                               <Badge tone={state.tone}>{state.label}</Badge>
-                              {primeiroResponsavel ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] text-app-muted-foreground">
-                                  <Mail className="h-3.5 w-3.5" />
-                                  <span>
-                                    Responsável: {primeiroResponsavel.nome} - {primeiroResponsavel.email ?? "E-mail pendente"}
-                                  </span>
-                                  {outrosResponsaveis > 0 ? <Badge tone="muted">+{outrosResponsaveis}</Badge> : null}
-                                </span>
-                              ) : null}
                               <div className="ml-auto flex flex-wrap items-center gap-3">
                                 <YesNo yes={contratado} label="Contrato" />
                                 <YesNo yes={!!mo.habilitadoAt && !mo.desabilitadoAt} label="Habilitado" />
@@ -228,25 +238,6 @@ export default async function ClienteDetailPage({
                                 <span className="text-app-danger">Desabilitado: {formatDate(mo.desabilitadoAt)} · {optLabel(mo.desabilitadoMotivo)}</span>
                               ) : null}
                             </div>
-                            <ModuloActions
-                              id={mo.id}
-                              municipioId={m.id}
-                              habilitadoAt={mo.habilitadoAt}
-                              solicitacaoAt={mo.solicitacaoAt}
-                              migracaoInicio={mo.migracaoInicio}
-                              migracaoFim={mo.migracaoFim}
-                              implantacaoStatus={mo.implantacaoStatus}
-                              execucaoInicio={mo.execucaoInicio}
-                              desabilitadoAt={mo.desabilitadoAt}
-                              actions={{
-                                habilitar: modActions.habilitarModulo,
-                                migracao: modActions.migracaoModulo,
-                                implantacao: modActions.implantacaoModulo,
-                                execucao: modActions.execucaoModulo,
-                                desabilitar: modActions.desabilitarModulo,
-                                reabilitar: modActions.reabilitarModulo,
-                              }}
-                            />
                           </div>
                         );
                       })

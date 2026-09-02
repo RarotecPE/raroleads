@@ -13,6 +13,7 @@ import {
   eventos,
   municipios,
 } from "@/db/schema";
+import { FileInput } from "@/components/file-input";
 import { DocumentoForm } from "@/components/registry-forms";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import { Badge, Empty, Field, Panel, PanelHeader, Stat, btnPrimary, btnXs, btnXsGhost, inputCls, selectCls, textareaCls } from "@/components/ui";
@@ -214,7 +215,7 @@ export default async function ContratoDetailPage({
                         <input name="documentoNome" className={inputCls} placeholder="Ex.: Aditivo assinado" />
                       </Field>
                       <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
-                        <input name="arquivo" type="file" accept={FILE_ACCEPT} className={inputCls} />
+                        <FileInput name="arquivo" accept={FILE_ACCEPT} />
                       </Field>
                     </div>
                   </div>

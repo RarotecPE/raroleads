@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
+import { FileInput } from "@/components/file-input";
 import { Field, btnPrimary, inputCls, selectCls, textareaCls } from "@/components/ui";
 import { createContrato } from "@/lib/actions";
 import { CONTRATO_MODALIDADES, CONTRATO_SITUACOES, CONTRATO_TIPOS, DOCUMENTO_TIPOS } from "@/lib/constants";
@@ -95,7 +96,7 @@ export function ContratoForm({
               <input name="documentoNome" className={inputCls} placeholder="Ex.: Contrato assinado" />
             </Field>
             <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
-              <input name="arquivo" type="file" accept={FILE_ACCEPT} className={inputCls} />
+              <FileInput name="arquivo" accept={FILE_ACCEPT} />
             </Field>
           </div>
         </div>
