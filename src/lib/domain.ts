@@ -12,6 +12,7 @@ import {
   pendencias,
   propostas,
 } from "@/db/schema";
+import { getCurrentSession } from "@/lib/auth";
 import type { Tone } from "@/lib/constants";
 import { MODULE_CATALOG } from "@/lib/constants";
 import { daysUntil, norm, todayISO } from "@/lib/utils";
@@ -39,7 +40,10 @@ export async function logEvent(e: {
   baseModuleId?: string | null;
   contratoId?: string | null;
   data?: string;
+  usuario?: string | null;
 }) {
+  const usuario = e.usuario ?? (await currentEventUser()) ?? "Equipe Interna";
+
   await db.insert(eventos).values({
     tipo: e.tipo,
     descricao: e.descricao,
@@ -48,7 +52,17 @@ export async function logEvent(e: {
     baseModuleId: e.baseModuleId ?? null,
     contratoId: e.contratoId ?? null,
     data: e.data ?? todayISO(),
+    usuario,
   });
+}
+
+async function currentEventUser() {
+  try {
+    const session = await getCurrentSession();
+    return session?.user.nome?.trim() || session?.user.email?.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 /* ------------------------------------------------------------------ */
