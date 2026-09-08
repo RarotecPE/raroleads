@@ -47,13 +47,11 @@ export function Dialog({
 
   return (
     <>
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <span className="contents" onClick={() => setOpen(true)}>
         {trigger}
       </span>
       {open ? (
         <div className="fixed inset-0 z-50 grid place-items-center p-4">
-          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-app-overlay"
             onClick={() => setOpen(false)}

@@ -79,6 +79,7 @@ function LoginContent() {
       <section className="w-full max-w-md rounded-app-lg border border-app-border bg-app-surface p-6 shadow-app-elevated">
         <div className="mb-6">
           <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-app-lg bg-white p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
           </div>
           <p className="text-xs font-semibold uppercase text-app-muted-foreground">{APP.shortName}</p>

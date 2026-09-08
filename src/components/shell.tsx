@@ -6,13 +6,12 @@ import {
   Building2,
   FileText,
   LayoutDashboard,
-  Moon,
-  Sun,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
-import { AuthProvider, UserMenu } from "@/components/auth-provider";
+import type { ReactNode } from "react";
+import { AuthProvider } from "@/components/auth-provider";
+import { HeaderActions } from "@/components/header-actions";
 import { OperationLoadingProvider } from "@/components/operation-loading";
 import { APP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -30,34 +29,6 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function ThemeToggle() {
-  const [light, setLight] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("theme") === "light";
-  });
-  useEffect(() => {
-    document.documentElement.classList.toggle("theme-light", light);
-  }, [light]);
-  const toggle = () => {
-    const next = !light;
-    setLight(next);
-    document.documentElement.classList.toggle("theme-light", next);
-    window.localStorage.setItem("theme", next ? "light" : "dark");
-  };
-  const Icon = light ? Moon : Sun;
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label={light ? "Usar tema escuro" : "Usar tema claro"}
-      title={light ? "Usar tema escuro" : "Usar tema claro"}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-app-md text-app-muted-foreground transition-colors duration-150 hover:bg-app-surface-elevated hover:text-app-foreground"
-    >
-      <Icon className="h-4 w-4" />
-    </button>
-  );
-}
-
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const current = NAV_ITEMS.find((i) => isActive(pathname, i.href));
@@ -71,17 +42,22 @@ export function Shell({ children }: { children: ReactNode }) {
       <OperationLoadingProvider>
       {/* Sidebar fixa — desktop (16rem, w-64) */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-app-border bg-app-surface lg:flex">
-        <div className="flex h-16 items-center gap-2.5 border-b border-app-border px-5">
+        <Link
+          href="/dashboard"
+          aria-label="Ir para o dashboard"
+          className="flex h-16 items-center gap-2.5 border-b border-app-border px-5 transition-colors hover:bg-app-surface-elevated/40"
+        >
           <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-app-md bg-white p-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
           </span>
           <div className="leading-tight">
-            <h1 className="text-xl font-bold text-white tracking-tight">
+            <span className="block text-xl font-bold tracking-tight text-white">
                   Raro<span className="text-blue-400">Leads</span>
-            </h1>
+            </span>
             <p className="text-[11px] text-app-muted-foreground">Gestão de clientes</p>
           </div>
-        </div>
+        </Link>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Navegação principal">
           {NAV_ITEMS.map((item) => {
             const active = isActive(pathname, item.href);
@@ -106,26 +82,28 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
         <div className="border-t border-app-border p-3">
           <p className="px-2 text-[11px] leading-relaxed text-app-muted-foreground">
-            Fonte unica de informacao: clientes, bases, modulos, contratos e historico.
+            Fonte única de informação: clientes, bases, módulos, contratos e histórico.
           </p>
         </div>
       </aside>
 
       {/* Header sticky (4rem, h-16) */}
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-app-border bg-app-surface/80 px-4 backdrop-blur-app-overlay sm:px-6 lg:pl-8 lg:pr-8">
+      <header className="sticky top-0 z-[45] flex h-16 items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/95 px-4 backdrop-blur sm:px-6 lg:ml-64 lg:pl-6 lg:pr-8">
         <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-app-md bg-white p-1 lg:hidden">
+          <Link
+            href="/dashboard"
+            aria-label="Ir para o dashboard"
+            className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-app-md bg-white p-1 transition-opacity hover:opacity-85 lg:hidden"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
-          </span>
+          </Link>
           <div className="leading-tight">
             <p className="text-[11px] font-semibold text-app-muted-foreground lg:hidden">{APP.name}</p>
-            <h1 className="text-base font-bold text-app-foreground">{current?.label ?? APP.name}</h1>
+            <h1 className="text-base font-bold text-white lg:text-lg">{current?.label ?? APP.name}</h1>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <UserMenu />
-        </div>
+        <HeaderActions />
       </header>
 
       {/* Conteúdo — spacing do schema; espaço reservado para a bottom nav no mobile */}
