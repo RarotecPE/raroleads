@@ -299,7 +299,7 @@ export function PropostaSituacaoForm({ id, situacao }: { id: string; situacao: s
           <option key={s.value} value={s.value}>{s.label}</option>
         ))}
       </select>
-      <button type="submit" className={btnXs}>Salvar</button>
+      <SubmitButton className={btnXs}>Salvar</SubmitButton>
     </form>
   );
 }

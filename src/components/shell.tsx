@@ -14,6 +14,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AuthProvider, UserMenu } from "@/components/auth-provider";
+import { OperationLoadingProvider } from "@/components/operation-loading";
 import { APP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <AuthProvider>
+      <OperationLoadingProvider>
       {/* Sidebar fixa — desktop (16rem, w-64) */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-app-border bg-app-surface lg:flex">
         <div className="flex h-16 items-center gap-2.5 border-b border-app-border px-5">
@@ -158,6 +160,7 @@ export function Shell({ children }: { children: ReactNode }) {
           );
         })}
       </nav>
+      </OperationLoadingProvider>
     </AuthProvider>
   );
 }

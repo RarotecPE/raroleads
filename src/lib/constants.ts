@@ -53,94 +53,95 @@ export const MODULE_CATALOG = [
 ] as const;
 
 export const PROPOSTA_TIPOS: Option[] = [
-  { value: "formal", label: "Proposta formal", tone: "primary" },
-  { value: "pregao", label: "Proposta de pregão", tone: "primary" },
-  { value: "licitacao_final", label: "Proposta final de licitação", tone: "primary" },
-  { value: "informal", label: "Negociação informal", tone: "muted" },
-  { value: "solicitacao", label: "Solicitação comercial", tone: "muted" },
+  { value: "Proposta formal", label: "Proposta formal", tone: "primary" },
+  { value: "Proposta de pregão", label: "Proposta de pregão", tone: "primary" },
+  { value: "Proposta final de licitação", label: "Proposta final de licitação", tone: "primary" },
+  { value: "Negociação informal", label: "Negociação informal", tone: "muted" },
+  { value: "Solicitação comercial", label: "Solicitação comercial", tone: "muted" },
 ];
 
 export const PROPOSTA_SITUACOES: Option[] = [
-  { value: "criada", label: "Criada", tone: "muted" },
-  { value: "apresentada", label: "Apresentada", tone: "primary" },
-  { value: "aceita", label: "Aceita", tone: "success" },
-  { value: "recusada", label: "Recusada", tone: "danger" },
-  { value: "convertida", label: "Convertida em contrato", tone: "success" },
+  { value: "Criada", label: "Criada", tone: "muted" },
+  { value: "Apresentada", label: "Apresentada", tone: "primary" },
+  { value: "Aceita", label: "Aceita", tone: "success" },
+  { value: "Recusada", label: "Recusada", tone: "danger" },
+  { value: "Convertida em contrato", label: "Convertida em contrato", tone: "success" },
 ];
 
 export const CONTRATO_MODALIDADES: Option[] = [
-  { value: "licitacao", label: "Licitação", tone: "primary" },
-  { value: "pregao", label: "Pregão", tone: "primary" },
-  { value: "dispensa", label: "Dispensa", tone: "muted" },
-  { value: "inexigibilidade", label: "Inexigibilidade", tone: "muted" },
-  { value: "adesao", label: "Adesão (ata)", tone: "muted" },
-  { value: "outros", label: "Outros", tone: "muted" },
+  { value: "Licitação", label: "Licitação", tone: "primary" },
+  { value: "Pregão", label: "Pregão", tone: "primary" },
+  { value: "Dispensa", label: "Dispensa", tone: "muted" },
+  { value: "Inexigibilidade", label: "Inexigibilidade", tone: "muted" },
+  { value: "Adesão (ata)", label: "Adesão (ata)", tone: "muted" },
+  { value: "Outros", label: "Outros", tone: "muted" },
 ];
 
 export const CONTRATO_SITUACOES: Option[] = [
-  { value: "recebido_sem_assinatura", label: "Recebido sem assinatura", tone: "warning" },
-  { value: "aguardando_assinatura", label: "Aguardando assinatura", tone: "warning" },
-  { value: "vigente", label: "Vigente", tone: "success" },
-  { value: "encerrado", label: "Encerrado", tone: "muted" },
-  { value: "cancelado", label: "Cancelado", tone: "danger" },
+  { value: "Recebido sem assinatura", label: "Recebido sem assinatura", tone: "warning" },
+  { value: "Aguardando assinatura", label: "Aguardando assinatura", tone: "warning" },
+  { value: "Vigente", label: "Vigente", tone: "success" },
+  { value: "Encerrado", label: "Encerrado", tone: "muted" },
+  { value: "Cancelado", label: "Cancelado", tone: "danger" },
 ];
 
 /** Situações derivadas pela data (não armazenadas). */
 export const CONTRATO_DERIVADAS: Record<string, Option> = {
-  proximo_vencimento: { value: "proximo_vencimento", label: "Próximo do vencimento", tone: "warning" },
-  vencido: { value: "vencido", label: "Vencido", tone: "danger" },
+  proximo_vencimento: { value: "Próximo do vencimento", label: "Próximo do vencimento", tone: "warning" },
+  vencido: { value: "Vencido", label: "Vencido", tone: "danger" },
 };
 
 export const ADITIVO_TIPOS: Option[] = [
-  { value: "inclusao_modulo", label: "Inclusão de módulo", tone: "primary" },
-  { value: "exclusao_modulo", label: "Exclusão de módulo", tone: "warning" },
-  { value: "alteracao_prazo", label: "Alteração de prazo", tone: "primary" },
-  { value: "alteracao_valor", label: "Alteração de valor", tone: "primary" },
-  { value: "alteracao_contratual", label: "Alteração contratual", tone: "muted" },
+  { value: "Inclusão de módulo", label: "Inclusão de módulo", tone: "primary" },
+  { value: "Exclusão de módulo", label: "Exclusão de módulo", tone: "warning" },
+  { value: "Alteração de prazo", label: "Alteração de prazo", tone: "primary" },
+  { value: "Alteração de valor", label: "Alteração de valor", tone: "primary" },
+  { value: "Alteração contratual", label: "Alteração contratual", tone: "muted" },
 ];
 
 export const HABILITACAO_ORIGENS: Option[] = [
-  { value: "contrato", label: "Contrato", tone: "primary" },
-  { value: "pregao", label: "Pregão", tone: "primary" },
-  { value: "proposta", label: "Proposta", tone: "primary" },
-  { value: "whatsapp", label: "WhatsApp", tone: "muted" },
-  { value: "email", label: "E-mail", tone: "muted" },
-  { value: "reuniao", label: "Reunião", tone: "muted" },
-  { value: "verbal", label: "Solicitação verbal", tone: "muted" },
+  { value: "Contrato", label: "Contrato", tone: "primary" },
+  { value: "Pregão", label: "Pregão", tone: "primary" },
+  { value: "Proposta", label: "Proposta", tone: "primary" },
+  { value: "WhatsApp", label: "WhatsApp", tone: "muted" },
+  { value: "E-mail", label: "E-mail", tone: "muted" },
+  { value: "Reunião", label: "Reunião", tone: "muted" },
+  { value: "Solicitação verbal", label: "Solicitação verbal", tone: "muted" },
 ];
 
 export const IMPLANTACAO_STATUS: Option[] = [
-  { value: "nao_iniciada", label: "Não iniciada", tone: "muted" },
-  { value: "em_andamento", label: "Em andamento", tone: "warning" },
-  { value: "concluida", label: "Concluída", tone: "success" },
-  { value: "suspensa", label: "Suspensa", tone: "danger" },
+  { value: "Não iniciada", label: "Não iniciada", tone: "muted" },
+  { value: "Em andamento", label: "Em andamento", tone: "warning" },
+  { value: "Concluída", label: "Concluída", tone: "success" },
+  { value: "Suspensa", label: "Suspensa", tone: "danger" },
 ];
 
 export const DESABILITACAO_MOTIVOS: Option[] = [
-  { value: "sem_uso", label: "Cliente não utiliza", tone: "warning" },
-  { value: "encerramento", label: "Encerramento", tone: "muted" },
-  { value: "troca_sistema", label: "Troca de sistema", tone: "warning" },
-  { value: "solicitacao_cliente", label: "Solicitação do cliente", tone: "primary" },
-  { value: "cancelamento_contratual", label: "Cancelamento contratual", tone: "danger" },
+  { value: "Sem uso", label: "Cliente não utiliza", tone: "warning" },
+  { value: "Encerramento", label: "Encerramento", tone: "muted" },
+  { value: "Troca de sistema", label: "Troca de sistema", tone: "warning" },
+  { value: "Solicitação do cliente", label: "Solicitação do cliente", tone: "primary" },
+  { value: "Cancelamento contratual", label: "Cancelamento contratual", tone: "danger" },
+  { value: "Inadimplência", label: "Inadimplência", tone: "danger" },
 ];
 
 export const DOCUMENTO_TIPOS: Option[] = [
-  { value: "proposta", label: "Proposta", tone: "primary" },
-  { value: "contrato", label: "Contrato", tone: "primary" },
-  { value: "contrato_sem_assinatura", label: "Contrato sem assinatura", tone: "warning" },
-  { value: "contrato_assinado", label: "Contrato assinado", tone: "success" },
-  { value: "aditivo", label: "Aditivo", tone: "primary" },
-  { value: "solicitacao", label: "Solicitação", tone: "muted" },
-  { value: "evidencia_whatsapp", label: "Evidência WhatsApp", tone: "muted" },
-  { value: "email", label: "E-mail", tone: "muted" },
-  { value: "ata", label: "Ata", tone: "primary" },
-  { value: "outros", label: "Outros", tone: "muted" },
+  { value: "Proposta", label: "Proposta", tone: "primary" },
+  { value: "Contrato", label: "Contrato", tone: "primary" },
+  { value: "Contrato sem assinatura", label: "Contrato sem assinatura", tone: "warning" },
+  { value: "Contrato assinado", label: "Contrato assinado", tone: "success" },
+  { value: "Aditivo", label: "Aditivo", tone: "primary" },
+  { value: "Solicitação", label: "Solicitação", tone: "muted" },
+  { value: "Evidência WhatsApp", label: "Evidência WhatsApp", tone: "muted" },
+  { value: "E-mail", label: "E-mail", tone: "muted" },
+  { value: "Ata", label: "Ata", tone: "primary" },
+  { value: "Outros", label: "Outros", tone: "muted" },
 ];
 
 export const CONTRATO_TIPOS: Option[] = [
-  { value: "contrato", label: "Contrato", tone: "primary"},
-  { value: "contrato_sem_assinatura", label: "Contrato sem assinatura", tone: "warning" },
-  { value: "contrato_assinado", label: "Contrato assinado", tone: "success" },
+  { value: "Contrato", label: "Contrato", tone: "primary"},
+  { value: "Contrato sem assinatura", label: "Contrato sem assinatura", tone: "warning" },
+  { value: "Contrato assinado", label: "Contrato assinado", tone: "success" },
 ]
 
 export const PENDENCIA_TIPOS: Record<string, { label: string; tone: Tone }> = {

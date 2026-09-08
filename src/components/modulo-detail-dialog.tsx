@@ -1,9 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Ban, FileText, Mail, Phone, Play, RotateCcw, Waves } from "lucide-react";
+import { Ban, FileText, Mail, Phone, Play, Plus, RotateCcw, Waves } from "lucide-react";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import { ImplantacaoStatusForm } from "@/components/implantacao-status-form";
-import { Badge, Empty, Field, YesNo, btnXs, btnXsGhost, inputCls, selectCls, textareaCls } from "@/components/ui";
+import { PhoneInput } from "@/components/phone-input";
+import { Badge, Empty, Field, YesNo, btnPrimary, btnXs, btnXsGhost, inputCls, selectCls, textareaCls } from "@/components/ui";
+import { createResponsavelModulo } from "@/lib/actions";
 import type { Base, BaseModule, Contrato, ModuloState } from "@/lib/domain";
 import { contratoView } from "@/lib/domain";
 import { DESABILITACAO_MOTIVOS, HABILITACAO_ORIGENS, optLabel } from "@/lib/constants";
@@ -82,11 +84,11 @@ export function ModuloDetailDialog({
         <section className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
           <h3 className="text-sm font-bold text-app-foreground">Detalhes operacionais</h3>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Detail label="Solicitacao" value={modulo.solicitacaoAt ? formatDate(modulo.solicitacaoAt) : "Não informada"} />
+            <Detail label="Solicitação" value={modulo.solicitacaoAt ? formatDate(modulo.solicitacaoAt) : "Não informada"} />
             <Detail label="Solicitante" value={modulo.solicitante ?? "Não informado"} />
             <Detail label="Origem" value={optLabel(modulo.solicitacaoOrigem)} />
             <DetailAction
-              label="Habilitacao"
+              label="Habilitação"
               value={modulo.habilitadoAt ? formatDate(modulo.habilitadoAt) : "Não habilitado"}
               action={!readOnly && ativo && !habilitado ? (
                 <Dialog
@@ -124,7 +126,7 @@ export function ModuloDetailDialog({
               ) : null}
             />
             <DetailAction
-              label="Migracao"
+              label="Migração"
               value={
                 modulo.migracaoInicio
                   ? `${formatDate(modulo.migracaoInicio)} -> ${
@@ -161,7 +163,7 @@ export function ModuloDetailDialog({
               ) : null}
             />
             <DetailAction
-              label="Implantacao"
+              label="Implantação"
               value=""
               action={!readOnly && ativo && habilitado ? (
                 <ImplantacaoStatusForm
@@ -173,7 +175,7 @@ export function ModuloDetailDialog({
               ) : null}
             />
             <DetailAction
-              label="Execucao"
+              label="Execução"
               value={modulo.execucaoInicio ? `Desde ${formatDate(modulo.execucaoInicio)}` : "Não iniciada"}
               action={!readOnly && ativo && habilitado && !modulo.execucaoInicio ? (
                 <Dialog
@@ -199,11 +201,11 @@ export function ModuloDetailDialog({
               ) : null}
             />
             <DetailAction
-              label="Desabilitacao"
+              label="Desabilitação"
               value={
                 modulo.desabilitadoAt
                   ? `${formatDate(modulo.desabilitadoAt)} - ${optLabel(modulo.desabilitadoMotivo)}`
-                  : "Modulo ativo"
+                  : "Módulo ativo"
               }
               action={
                 !readOnly && ativo && habilitado ? (
@@ -294,7 +296,48 @@ export function ModuloDetailDialog({
         </section>
 
         <section className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
-          <h3 className="text-sm font-bold text-app-foreground">Responsaveis</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-app-foreground">Responsaveis</h3>
+            {!readOnly ? (
+              <Dialog
+                title="Novo responsavel"
+                description={`Vinculado a ${base.nome} - ${modulo.nome}`}
+                trigger={
+                  <button type="button" className={btnXsGhost}>
+                    <Plus className="h-3.5 w-3.5" /> Novo responsavel
+                  </button>
+                }
+              >
+                <DialogForm action={createResponsavelModulo}>
+                  <input type="hidden" name="municipioId" value={municipioId} />
+                  <input type="hidden" name="baseModuleId" value={modulo.id} />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Nome">
+                      <input name="nome" required className={inputCls} placeholder="Nome do responsavel" />
+                    </Field>
+                    <Field label="E-mail">
+                      <input name="email" type="email" className={inputCls} placeholder="responsavel@cliente.gov.br" />
+                    </Field>
+                    <Field label="Celular">
+                      <PhoneInput name="celular" placeholder="(00)99999-9999" />
+                    </Field>
+                    <label className="flex items-start gap-2 self-end text-sm text-app-foreground">
+                      <input
+                        type="checkbox"
+                        name="avisoHabilitacaoEmail"
+                        defaultChecked
+                        className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
+                      />
+                      <span>Enviar aviso de habilitacao por e-mail</span>
+                    </label>
+                  </div>
+                  <div className="flex justify-end">
+                    <SubmitButton className={btnPrimary}>Cadastrar responsavel</SubmitButton>
+                  </div>
+                </DialogForm>
+              </Dialog>
+            ) : null}
+          </div>
           <div className="mt-3 flex flex-col gap-2">
             {responsaveis.length === 0 ? (
               <Empty title="Nenhum responsavel vinculado" />

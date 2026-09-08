@@ -120,9 +120,9 @@ export default async function PendenciasPage({
                     {p.situacao === "aberta" ? (
                       <form action={resolverPendencia}>
                         <input type="hidden" name="id" value={p.id} />
-                        <button type="submit" className={btnXsGhost} title="Resolver pendência" aria-label="Resolver pendência">
+                        <SubmitButton className={btnXsGhost} title="Resolver pendência" aria-label="Resolver pendência">
                           <CheckCircle2 className="h-3.5 w-3.5 text-app-success" /> Resolver
-                        </button>
+                        </SubmitButton>
                       </form>
                     ) : null}
                   </div>

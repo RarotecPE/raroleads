@@ -150,8 +150,7 @@ export default async function ContratoDetailPage({
                             <form action={isLinked ? desvincularModulo : vincularModulo}>
                               <input type="hidden" name="contratoId" value={c.id} />
                               <input type="hidden" name="baseModuleId" value={mo.id} />
-                              <button
-                                type="submit"
+                              <SubmitButton
                                 className={isLinked ? btnXsGhost : btnXs}
                                 title={isLinked ? "Desvincular módulo" : "Vincular módulo ao contrato"}
                                 aria-label={isLinked ? `Desvincular ${mo.nome}` : `Vincular ${mo.nome}`}
@@ -165,7 +164,7 @@ export default async function ContratoDetailPage({
                                     <Link2 className="h-3.5 w-3.5" /> Vincular
                                   </>
                                 )}
-                              </button>
+                              </SubmitButton>
                             </form>
                             )}
                           </div>

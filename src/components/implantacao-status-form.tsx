@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ChangeEvent } from "react";
+import { OperationLoadingTracker } from "@/components/operation-loading";
 import { IMPLANTACAO_STATUS } from "@/lib/constants";
 
 interface ImplantacaoStatusFormProps {
@@ -35,6 +36,7 @@ export function ImplantacaoStatusForm({
 
   return (
     <div>
+      <OperationLoadingTracker active={isPending} />
       <label className="sr-only" htmlFor={`detail-impl-${id}`}>
         Implantacao
       </label>

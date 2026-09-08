@@ -16,6 +16,7 @@ import {
   propostas,
 } from "@/db/schema";
 import { ContratoForm } from "@/components/contrato-form";
+import { SubmitButton } from "@/components/dialog";
 import { ModuloDetailDialog } from "@/components/modulo-detail-dialog";
 import { ClienteForm } from "@/components/cliente-form";
 import {
@@ -516,9 +517,9 @@ export default async function ClienteDetailPage({
                       {!clienteEncerrado ? (
                         <form action={resolverPendencia}>
                           <input type="hidden" name="id" value={p.id} />
-                          <button type="submit" className={btnXsGhost} title="Resolver pendência" aria-label="Resolver pendência">
+                          <SubmitButton className={btnXsGhost} title="Resolver pendência" aria-label="Resolver pendência">
                             <XCircle className="h-3.5 w-3.5" /> Resolver
-                          </button>
+                          </SubmitButton>
                         </form>
                       ) : null}
                     </div>
@@ -541,25 +542,32 @@ export default async function ClienteDetailPage({
             {evts.length === 0 ? (
               <Empty title="Sem eventos registrados" />
             ) : (
-              evts.map((e, i) => (
-                <div key={e.id} className="relative flex gap-3 pb-4 last:pb-0">
-                  {i < evts.length - 1 ? (
-                    <span className="absolute left-[7px] top-5 h-full w-px bg-app-border" aria-hidden />
-                  ) : null}
-                  <span className="mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-app-primary bg-app-surface" aria-hidden />
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-app-muted-foreground">
-                      {formatDate(e.data)} · {EVENTO_TIPOS[e.tipo] ?? e.tipo}
-                    </p>
-                    <p className="mt-0.5 text-sm text-app-foreground">{e.descricao}</p>
-                    <p className="mt-0.5 text-[11px] text-app-muted-foreground">
-                      Registrado por {e.usuario}
-                      {e.baseModuleId && modById.get(e.baseModuleId) ? ` · Módulo ${modById.get(e.baseModuleId)?.nome}` : ""}
-                      {e.contratoId ? ` · Contrato ${cs.find((c) => c.id === e.contratoId)?.numero ?? ""}` : ""}
-                    </p>
+              evts.map((e, i) => {
+                const eventModulo = e.baseModuleId ? modById.get(e.baseModuleId) : null;
+                const eventBase = e.baseId ? baseById.get(e.baseId) : eventModulo ? baseById.get(eventModulo.baseId) : null;
+                const eventContrato = e.contratoId ? contratoById.get(e.contratoId) : null;
+
+                return (
+                  <div key={e.id} className="relative flex gap-3 pb-4 last:pb-0">
+                    {i < evts.length - 1 ? (
+                      <span className="absolute left-[7px] top-5 h-full w-px bg-app-border" aria-hidden />
+                    ) : null}
+                    <span className="mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-app-primary bg-app-surface" aria-hidden />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-app-muted-foreground">
+                        {formatDate(e.data)} · {EVENTO_TIPOS[e.tipo] ?? e.tipo}
+                      </p>
+                      <p className="mt-0.5 text-sm text-app-foreground">{e.descricao}</p>
+                      <p className="mt-0.5 text-[11px] text-app-muted-foreground">
+                        Registrado por {e.usuario}
+                        {eventBase ? ` · Base ${eventBase.nome}` : ""}
+                        {eventModulo ? ` · Módulo ${eventModulo.nome}` : ""}
+                        {eventContrato ? ` · Contrato ${eventContrato.numero}` : ""}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </Panel>

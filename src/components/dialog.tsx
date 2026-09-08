@@ -5,12 +5,14 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type FormEvent,
   type FormEventHandler,
   type ReactNode,
 } from "react";
 import { useFormStatus } from "react-dom";
+import { OperationLoadingTracker } from "@/components/operation-loading";
 import { cn } from "@/lib/utils";
 
 const DialogCtx = createContext<{ close: () => void }>({ close: () => {} });
@@ -107,15 +109,39 @@ export function DialogForm({
   onSubmit?: FormEventHandler<HTMLFormElement>;
 }) {
   const { close } = useContext(DialogCtx);
+  const [submitted, setSubmitted] = useState(false);
   const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     onSubmit?.(event);
-    if (!event.defaultPrevented) close();
+    if (!event.defaultPrevented) setSubmitted(true);
   };
   return (
     <form id={id} action={action} onSubmit={handleSubmit as (e: FormEvent) => void} className={cn("flex flex-col gap-4", className)}>
+      <DialogSubmitCompletion submitted={submitted} close={close} />
       {children}
     </form>
   );
+}
+
+function DialogSubmitCompletion({
+  submitted,
+  close,
+}: {
+  submitted: boolean;
+  close: () => void;
+}) {
+  const { pending } = useFormStatus();
+  const sawPending = useRef(false);
+
+  useEffect(() => {
+    if (!submitted) return;
+    if (pending) {
+      sawPending.current = true;
+      return;
+    }
+    if (sawPending.current) close();
+  }, [close, pending, submitted]);
+
+  return null;
 }
 
 export function SubmitButton({
@@ -128,11 +154,14 @@ export function SubmitButton({
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "type" | "disabled" | "className" | "children">) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={className} {...rest}>
-      {pending ? (
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-      ) : null}
-      {children}
-    </button>
+    <>
+      <OperationLoadingTracker active={pending} />
+      <button type="submit" disabled={pending} className={className} {...rest}>
+        {pending ? (
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        ) : null}
+        {children}
+      </button>
+    </>
   );
 }
