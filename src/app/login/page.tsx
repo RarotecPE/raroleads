@@ -78,6 +78,9 @@ function LoginContent() {
       />
       <section className="w-full max-w-md rounded-app-lg border border-app-border bg-app-surface p-6 shadow-app-elevated">
         <div className="mb-6">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-app-lg bg-white p-2">
+            <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
+          </div>
           <p className="text-xs font-semibold uppercase text-app-muted-foreground">{APP.shortName}</p>
           <h1 className="mt-2 text-2xl font-bold text-app-foreground">Entrar no {APP.name}</h1>
           <p className="mt-2 text-sm leading-6 text-app-muted-foreground">

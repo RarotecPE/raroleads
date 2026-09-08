@@ -5,7 +5,6 @@ import {
   BarChart3,
   Building2,
   FileText,
-  Layers,
   LayoutDashboard,
   Moon,
   Sun,
@@ -73,12 +72,14 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Sidebar fixa — desktop (16rem, w-64) */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-app-border bg-app-surface lg:flex">
         <div className="flex h-16 items-center gap-2.5 border-b border-app-border px-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-app-md bg-app-primary text-app-primary-foreground">
-            <Layers className="h-4 w-4" />
+          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-app-md bg-white p-1">
+            <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
           </span>
           <div className="leading-tight">
-            <p className="text-sm font-bold text-app-foreground">{APP.name}</p>
-            <p className="text-[11px] text-app-muted-foreground">Gestão administrativa</p>
+            <h1 className="text-xl font-bold text-white tracking-tight">
+                  Raro<span className="text-blue-400">Leads</span>
+            </h1>
+            <p className="text-[11px] text-app-muted-foreground">Gestão de clientes</p>
           </div>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Navegação principal">
@@ -113,8 +114,8 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Header sticky (4rem, h-16) */}
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-app-border bg-app-surface/80 px-4 backdrop-blur-app-overlay sm:px-6 lg:pl-8 lg:pr-8">
         <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-app-md bg-app-primary text-app-primary-foreground lg:hidden">
-            <Layers className="h-4 w-4" />
+          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-app-md bg-white p-1 lg:hidden">
+            <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
           </span>
           <div className="leading-tight">
             <p className="text-[11px] font-semibold text-app-muted-foreground lg:hidden">{APP.name}</p>
