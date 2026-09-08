@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Grid3X3, LogOut, Moon, Sun } from "lucide-react";
+import { ExternalLink, Grid2X2, Grid3X3, LogOut, Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { HeaderDropdown, HeaderIconButton } from "@/components/header-dropdown";
 import { useAuth } from "@/components/auth-provider";
@@ -147,13 +147,13 @@ export function HeaderActions() {
           active={openMenu === "applications"}
           onClick={() => openDropdown("applications")}
         >
-          <Grid3X3 className="h-5 w-5" />
+          <Grid2X2 className="h-5 w-5" />
         </HeaderIconButton>
 
         <HeaderDropdown open={openMenu === "applications"} onClose={closeMenu}>
           <div className="border-b border-slate-800 px-4 py-3">
             <h3 className="font-semibold text-white">Aplicativos</h3>
-            <p className="text-xs text-slate-500">Sistemas disponiveis para sua conta</p>
+            <p className="text-xs text-slate-500">Sistemas disponíveis para sua conta</p>
           </div>
           <div className="max-h-80 overflow-y-auto p-2">
             {appsLoading ? (
@@ -170,7 +170,7 @@ export function HeaderActions() {
                 </button>
               </div>
             ) : applications.length === 0 ? (
-              <p className="px-3 py-4 text-sm text-slate-400">Nenhum outro aplicativo disponivel.</p>
+              <p className="px-3 py-4 text-sm text-slate-400">Nenhum outro aplicativo disponível.</p>
             ) : (
               applications.map((application) => (
                 <a
