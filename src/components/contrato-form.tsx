@@ -95,8 +95,8 @@ export function ContratoForm({
             <Field label="Nome de exibicao">
               <input name="documentoNome" className={inputCls} placeholder="Ex.: Contrato assinado" />
             </Field>
-            <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
-              <FileInput name="arquivo" accept={FILE_ACCEPT} />
+            <Field label="Arquivo" hint="Obrigatório. Documentos e imagens ate 20 MB." className="sm:col-span-2">
+              <FileInput name="arquivo" accept={FILE_ACCEPT} required />
             </Field>
           </div>
         </div>

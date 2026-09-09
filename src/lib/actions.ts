@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
@@ -17,9 +17,10 @@ import {
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
 import { cnpjDigits } from "@/lib/cnpj";
-import { ADITIVO_TIPO_ALTERACAO_PRAZO, optLabel } from "@/lib/constants";
+import { ADITIVO_TIPO_ALTERACAO_PRAZO, normalizeContratoSituacao, optLabel } from "@/lib/constants";
 import { deleteDocumentFile, fileFromFormData, uploadDocumentFile } from "@/lib/document-storage";
 import { logEvent, syncPendencias } from "@/lib/domain";
+import { norm } from "@/lib/utils";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k);
@@ -305,6 +306,46 @@ export async function createModulo(fd: FormData) {
   done();
 }
 
+export async function createModulosEmGrupo(fd: FormData) {
+  await requireServerActionPermission();
+  const municipioId = req(fd, "municipioId");
+  await assertClienteOperacional(municipioId);
+  const nome = req(fd, "nome");
+  const observacoes = str(fd, "observacoes");
+  const baseIds = [...new Set(fd.getAll("baseIds").filter((v): v is string => typeof v === "string" && v.trim() !== ""))];
+
+  if (baseIds.length === 0) {
+    throw new Error("Selecione ao menos uma base para cadastrar o modulo.");
+  }
+
+  const selectedBases = await db.select().from(bases).where(inArray(bases.id, baseIds));
+  if (selectedBases.length !== baseIds.length || selectedBases.some((base) => base.municipioId !== municipioId)) {
+    throw new Error("Selecione apenas bases validas deste cliente.");
+  }
+
+  const existingModules = await db.select().from(baseModules).where(inArray(baseModules.baseId, baseIds));
+  const normalizedNome = norm(nome);
+  const existingBaseIds = new Set(
+    existingModules.filter((modulo) => norm(modulo.nome) === normalizedNome).map((modulo) => modulo.baseId),
+  );
+  const basesParaCriar = selectedBases.filter((base) => !existingBaseIds.has(base.id));
+
+  if (basesParaCriar.length === 0) {
+    throw new Error("As bases selecionadas ja possuem esse modulo.");
+  }
+
+  const rows = await db.transaction(async (tx) => tx
+    .insert(baseModules)
+    .values(basesParaCriar.map((base) => ({ baseId: base.id, nome, observacoes })))
+    .returning());
+
+  for (const row of rows) {
+    await logEvent({ tipo: "modulo_criado", descricao: `Módulo ${nome} criado na base.`, municipioId, baseId: row.baseId, baseModuleId: row.id });
+  }
+  await syncPendencias();
+  done();
+}
+
 export async function createResponsavelModulo(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
@@ -537,6 +578,7 @@ export async function createContrato(fd: FormData) {
   const municipioId = req(fd, "municipioId");
   await assertClienteOperacional(municipioId);
   const arquivo = fileFromFormData(fd);
+  if (!arquivo) throw new Error("Selecione um arquivo para anexar ao contrato.");
   let uploadedKey: string | null = null;
   const row = await db.transaction(async (tx) => {
     const [contrato] = await tx
@@ -550,7 +592,7 @@ export async function createContrato(fd: FormData) {
         dataAssinatura: str(fd, "dataAssinatura"),
         dataInicio: str(fd, "dataInicio"),
         dataFim: str(fd, "dataFim"),
-        situacao: str(fd, "situacao") ?? "aguardando_assinatura",
+        situacao: normalizeContratoSituacao(str(fd, "situacao")),
         observacoes: str(fd, "observacoes"),
       })
       .returning();
@@ -585,7 +627,7 @@ export async function createContrato(fd: FormData) {
 export async function setContratoSituacao(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
-  const situacao = req(fd, "situacao");
+  const situacao = normalizeContratoSituacao(req(fd, "situacao"));
   const c = await assertContratoOperacional(id);
   await db.update(contratos).set({ situacao }).where(eq(contratos.id, id));
   await logEvent({ tipo: "contrato_situacao", descricao: `Contrato ${c?.numero ?? id} marcado como ${situacao}.`, municipioId: c?.municipioId ?? null, contratoId: id });
@@ -626,6 +668,7 @@ export async function createAditivo(fd: FormData) {
   const tipo = str(fd, "tipo") ?? "alteracao_contratual";
   const novaDataFim = tipo === ADITIVO_TIPO_ALTERACAO_PRAZO ? req(fd, "novaDataFim") : null;
   const arquivo = fileFromFormData(fd);
+  if (!arquivo) throw new Error("Selecione um arquivo para anexar ao aditivo.");
   let uploadedKey: string | null = null;
   const row = await db.transaction(async (tx) => {
     const [aditivo] = await tx

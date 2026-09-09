@@ -78,12 +78,25 @@ export const CONTRATO_MODALIDADES: Option[] = [
 ];
 
 export const CONTRATO_SITUACOES: Option[] = [
-  { value: "Recebido sem assinatura", label: "Recebido sem assinatura", tone: "warning" },
-  { value: "Aguardando assinatura", label: "Aguardando assinatura", tone: "warning" },
-  { value: "Vigente", label: "Vigente", tone: "success" },
-  { value: "Encerrado", label: "Encerrado", tone: "muted" },
-  { value: "Cancelado", label: "Cancelado", tone: "danger" },
+  { value: "recebido_sem_assinatura", label: "Recebido sem assinatura", tone: "warning" },
+  { value: "aguardando_assinatura", label: "Aguardando assinatura", tone: "warning" },
+  { value: "vigente", label: "Vigente", tone: "success" },
+  { value: "encerrado", label: "Encerrado", tone: "muted" },
+  { value: "cancelado", label: "Cancelado", tone: "danger" },
 ];
+
+const CONTRATO_SITUACOES_LEGADAS: Record<string, string> = {
+  "Recebido sem assinatura": "recebido_sem_assinatura",
+  "Aguardando assinatura": "aguardando_assinatura",
+  Vigente: "vigente",
+  Encerrado: "encerrado",
+  Cancelado: "cancelado",
+};
+
+export function normalizeContratoSituacao(value: string | null | undefined): string {
+  if (!value) return "aguardando_assinatura";
+  return CONTRATO_SITUACOES_LEGADAS[value] ?? value;
+}
 
 /** Situações derivadas pela data (não armazenadas). */
 export const CONTRATO_DERIVADAS: Record<string, Option> = {
