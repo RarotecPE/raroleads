@@ -83,17 +83,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loading, logout, refresh, session],
   );
 
-  if (loading || !session?.authenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app-background px-4">
-        <div className="w-full max-w-sm rounded-app-lg border border-app-border bg-app-surface p-5">
-          <p className="text-sm font-semibold text-app-foreground">Verificando acesso</p>
-          <p className="mt-1 text-xs text-app-muted-foreground">Conectando com o RaroNexus...</p>
-        </div>
-      </div>
-    );
-  }
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
@@ -108,8 +97,8 @@ export function UserMenu() {
   return (
     <div className="flex items-center gap-2">
       <div className="hidden min-w-0 text-right sm:block">
-        <p className="truncate text-xs font-semibold text-app-foreground">{auth.user?.nome}</p>
-        <p className="truncate text-[11px] text-app-muted-foreground">{auth.label}</p>
+        <p className="truncate text-xs font-semibold text-app-foreground">{auth.user?.nome || "Usuario"}</p>
+        <p className="truncate text-[11px] text-app-muted-foreground">{auth.label || "Perfil"}</p>
       </div>
       <span className="flex h-9 w-9 items-center justify-center rounded-app-md bg-app-surface-elevated text-app-muted-foreground">
         <UserCircle className="h-5 w-5" />

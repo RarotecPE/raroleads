@@ -88,6 +88,7 @@ export function HeaderActions() {
   const [appsLoading, setAppsLoading] = useState(false);
   const [appsError, setAppsError] = useState("");
   const displayName = auth.user?.nome || "Usuario";
+  const roleLabel = auth.label || "Perfil";
 
   useEffect(() => {
     applyColorTheme(theme);
@@ -217,7 +218,7 @@ export function HeaderActions() {
             </div>
             <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
               <p className="text-[10px] uppercase tracking-wider text-slate-600">Perfil no RaroLeads</p>
-              <p className="text-sm font-medium text-slate-200">{auth.label}</p>
+              <p className="text-sm font-medium text-slate-200">{roleLabel}</p>
             </div>
           </div>
           <div className="space-y-2 p-2">
