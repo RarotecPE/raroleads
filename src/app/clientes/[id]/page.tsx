@@ -18,6 +18,7 @@ import {
 import { ContratoForm } from "@/components/contrato-form";
 import { SubmitButton } from "@/components/dialog";
 import { ModuloDetailDialog } from "@/components/modulo-detail-dialog";
+import { ModuloGrupoForm } from "@/components/modulo-grupo-form";
 import { ClienteForm } from "@/components/cliente-form";
 import {
   BaseForm,
@@ -171,15 +172,24 @@ export default async function ClienteDetailPage({
           description="Contratar ≠ habilitar ≠ executar — cada estado é controlado separadamente"
           right={
             clienteEncerrado ? null : (
-              <BaseForm
-                municipioId={m.id}
-                bases={bs}
-                trigger={
-                  <button type="button" className={btnPrimary}>
-                    <Plus className="h-4 w-4" /> Nova base
-                  </button>
-                }
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                {bs.length > 0 ? (
+                  <ModuloGrupoForm
+                    municipioId={m.id}
+                    bases={bs.map((base) => ({ id: base.id, nome: base.nome, tipo: base.tipo }))}
+                    modulos={mods.map((modulo) => ({ baseId: modulo.baseId, nome: modulo.nome }))}
+                  />
+                ) : null}
+                <BaseForm
+                  municipioId={m.id}
+                  bases={bs}
+                  trigger={
+                    <button type="button" className={btnPrimary}>
+                      <Plus className="h-4 w-4" /> Nova base
+                    </button>
+                  }
+                />
+              </div>
             )
           }
         />
