@@ -2,13 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Ban, FileText, Mail, Phone, Play, Plus, RotateCcw, Waves } from "lucide-react";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
+import { HabilitarModuloForm } from "@/components/habilitar-modulo-form";
 import { ImplantacaoStatusForm } from "@/components/implantacao-status-form";
 import { PhoneInput } from "@/components/phone-input";
 import { Badge, Empty, Field, YesNo, btnPrimary, btnXs, btnXsGhost, inputCls, selectCls, textareaCls } from "@/components/ui";
 import { createResponsavelModulo } from "@/lib/actions";
 import type { Base, BaseModule, Contrato, ModuloState } from "@/lib/domain";
 import { contratoView } from "@/lib/domain";
-import { DESABILITACAO_MOTIVOS, HABILITACAO_ORIGENS, optLabel } from "@/lib/constants";
+import { DESABILITACAO_MOTIVOS, optLabel } from "@/lib/constants";
 import { formatDate, formatDateTime, todayISO } from "@/lib/utils";
 import { formatPhone } from "@/lib/phone";
 import type { moduloResponsaveis } from "@/db/schema";
@@ -96,32 +97,12 @@ export function ModuloDetailDialog({
                   description="Registra a solicitação e o momento em que o módulo passa a existir operacionalmente."
                   trigger={<button type="button" className={btnXs}>Habilitar</button>}
                 >
-                  <DialogForm action={actions.habilitar}>
-                    <input type="hidden" name="id" value={modulo.id} />
-                    <input type="hidden" name="municipioId" value={municipioId} />
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Field label="Data da solicitação" hint="Opcional, mas recomendado.">
-                        <input type="date" name="solicitacaoAt" defaultValue={modulo.solicitacaoAt ?? todayISO()} className={inputCls} />
-                      </Field>
-                      <Field label="Data da habilitação">
-                        <input type="date" name="habilitadoAt" required defaultValue={todayISO()} className={inputCls} />
-                      </Field>
-                      <Field label="Solicitante">
-                        <input name="solicitante" placeholder="Quem solicitou" className={inputCls} />
-                      </Field>
-                      <Field label="Origem da solicitação">
-                        <select name="origem" className={selectCls} defaultValue="">
-                          <option value="">—</option>
-                          {HABILITACAO_ORIGENS.map((origem) => (
-                            <option key={origem.value} value={origem.value}>{origem.label}</option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-                    <div className="flex justify-end">
-                      <SubmitButton className={btnXs.replace("h-8", "h-10").replace("text-xs", "text-sm")}>Registrar habilitação</SubmitButton>
-                    </div>
-                  </DialogForm>
+                  <HabilitarModuloForm
+                    action={actions.habilitar}
+                    id={modulo.id}
+                    municipioId={municipioId}
+                    solicitacaoAt={modulo.solicitacaoAt}
+                  />
                 </Dialog>
               ) : null}
             />

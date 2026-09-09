@@ -3,9 +3,9 @@
 import { Ban, Check, Play, RotateCcw, Waves } from "lucide-react";
 import { selectCls, inputCls, textareaCls, btnXs, btnXsGhost, Field } from "@/components/ui";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
+import { HabilitarModuloForm } from "@/components/habilitar-modulo-form";
 import {
   DESABILITACAO_MOTIVOS,
-  HABILITACAO_ORIGENS,
   IMPLANTACAO_STATUS,
 } from "@/lib/constants";
 import { todayISO } from "@/lib/utils";
@@ -41,32 +41,12 @@ export function ModuloActions(m: ModuloActionsProps) {
           description="Registra a solicitação e o momento em que o módulo passa a existir operacionalmente."
           trigger={<button type="button" className={btnXs}>Habilitar</button>}
         >
-          <DialogForm action={m.actions.habilitar}>
-            <input type="hidden" name="id" value={m.id} />
-            <input type="hidden" name="municipioId" value={m.municipioId} />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Data da solicitação" hint="Opcional, mas recomendado.">
-                <input type="date" name="solicitacaoAt" defaultValue={m.solicitacaoAt ?? todayISO()} className={inputCls} />
-              </Field>
-              <Field label="Data da habilitação">
-                <input type="date" name="habilitadoAt" required defaultValue={todayISO()} className={inputCls} />
-              </Field>
-              <Field label="Solicitante">
-                <input name="solicitante" placeholder="Quem solicitou" className={inputCls} />
-              </Field>
-              <Field label="Origem da solicitação">
-                <select name="origem" className={selectCls} defaultValue="">
-                  <option value="">—</option>
-                  {HABILITACAO_ORIGENS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div className="flex justify-end">
-              <SubmitButton className={btnXs.replace("h-8", "h-10").replace("text-xs", "text-sm")}>Registrar habilitação</SubmitButton>
-            </div>
-          </DialogForm>
+          <HabilitarModuloForm
+            action={m.actions.habilitar}
+            id={m.id}
+            municipioId={m.municipioId}
+            solicitacaoAt={m.solicitacaoAt}
+          />
         </Dialog>
       ) : null}
 
