@@ -78,6 +78,16 @@ const EXPECTED_DOCUMENTO_COLUMNS = [
   "created_at",
 ] as const;
 
+const EXPECTED_ADITIVO_COLUMNS = [
+  "id",
+  "contrato_id",
+  "tipo",
+  "data",
+  "descricao",
+  "nova_data_fim",
+  "created_at",
+] as const;
+
 export type DatabaseHealth =
   | {
       ok: true;
@@ -101,6 +111,7 @@ export type DatabaseHealth =
       missingClienteColumns: string[];
       missingModuloResponsavelColumns: string[];
       missingDocumentoColumns: string[];
+      missingAditivoColumns: string[];
     }
   | {
       ok: false;
@@ -146,12 +157,17 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
       "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
       ["documentos"],
     );
+    const aditivoColumns = await pool.query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+      ["aditivos"],
+    );
 
     const tableNames = tables.rows.map((row) => row.table_name);
     const columnNames = columns.rows.map((row) => row.column_name);
     const clienteColumnNames = clienteColumns.rows.map((row) => row.column_name);
     const moduloResponsavelColumnNames = moduloResponsavelColumns.rows.map((row) => row.column_name);
     const documentoColumnNames = documentoColumns.rows.map((row) => row.column_name);
+    const aditivoColumnNames = aditivoColumns.rows.map((row) => row.column_name);
     const missingTables = EXPECTED_TABLES.filter((table) => !tableNames.includes(table));
     const missingBaseModuleColumns = EXPECTED_BASE_MODULE_COLUMNS.filter((column) => !columnNames.includes(column));
     const missingClienteColumns = EXPECTED_CLIENTE_COLUMNS.filter((column) => !clienteColumnNames.includes(column));
@@ -161,13 +177,15 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
     const missingDocumentoColumns = EXPECTED_DOCUMENTO_COLUMNS.filter(
       (column) => !documentoColumnNames.includes(column),
     );
+    const missingAditivoColumns = EXPECTED_ADITIVO_COLUMNS.filter((column) => !aditivoColumnNames.includes(column));
 
     if (
       missingTables.length > 0 ||
       missingBaseModuleColumns.length > 0 ||
       missingClienteColumns.length > 0 ||
       missingModuloResponsavelColumns.length > 0 ||
-      missingDocumentoColumns.length > 0
+      missingDocumentoColumns.length > 0 ||
+      missingAditivoColumns.length > 0
     ) {
       return {
         ok: false,
@@ -178,6 +196,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
         missingClienteColumns,
         missingModuloResponsavelColumns,
         missingDocumentoColumns,
+        missingAditivoColumns,
       };
     }
 

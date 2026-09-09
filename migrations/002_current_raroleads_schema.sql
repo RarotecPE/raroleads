@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS "aditivos" (
   "tipo" text NOT NULL DEFAULT 'alteracao_contratual',
   "data" date,
   "descricao" text NOT NULL,
+  "nova_data_fim" date,
   "created_at" timestamp NOT NULL DEFAULT now(),
   CONSTRAINT "aditivos_contrato_id_contratos_id_fk"
     FOREIGN KEY ("contrato_id") REFERENCES "contratos" ("id")

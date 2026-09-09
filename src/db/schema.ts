@@ -138,6 +138,7 @@ export const aditivos = pgTable("aditivos", {
   tipo: text("tipo").notNull().default("alteracao_contratual"),
   data: date("data"),
   descricao: text("descricao").notNull(),
+  novaDataFim: date("nova_data_fim"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

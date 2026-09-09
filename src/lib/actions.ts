@@ -17,7 +17,7 @@ import {
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
 import { cnpjDigits } from "@/lib/cnpj";
-import { optLabel } from "@/lib/constants";
+import { ADITIVO_TIPO_ALTERACAO_PRAZO, optLabel } from "@/lib/constants";
 import { deleteDocumentFile, fileFromFormData, uploadDocumentFile } from "@/lib/document-storage";
 import { logEvent, syncPendencias } from "@/lib/domain";
 
@@ -623,6 +623,8 @@ export async function createAditivo(fd: FormData) {
   await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
   const c = await assertContratoOperacional(contratoId);
+  const tipo = str(fd, "tipo") ?? "alteracao_contratual";
+  const novaDataFim = tipo === ADITIVO_TIPO_ALTERACAO_PRAZO ? req(fd, "novaDataFim") : null;
   const arquivo = fileFromFormData(fd);
   let uploadedKey: string | null = null;
   const row = await db.transaction(async (tx) => {
@@ -630,11 +632,16 @@ export async function createAditivo(fd: FormData) {
       .insert(aditivos)
       .values({
         contratoId,
-        tipo: str(fd, "tipo") ?? "alteracao_contratual",
+        tipo,
         data: str(fd, "data") ?? today(),
         descricao: req(fd, "descricao"),
+        novaDataFim,
       })
       .returning();
+
+    if (novaDataFim) {
+      await tx.update(contratos).set({ dataFim: novaDataFim }).where(eq(contratos.id, contratoId));
+    }
 
     if (arquivo) {
       const documentoId = newId();
@@ -660,6 +667,7 @@ export async function createAditivo(fd: FormData) {
     throw error;
   });
   await logEvent({ tipo: "aditivo_criado", descricao: `Aditivo (${row.tipo}): ${row.descricao}`, municipioId: c?.municipioId ?? null, contratoId, data: row.data ?? today() });
+  await syncPendencias();
   done();
 }
 

@@ -91,10 +91,12 @@ export const CONTRATO_DERIVADAS: Record<string, Option> = {
   vencido: { value: "Vencido", label: "Vencido", tone: "danger" },
 };
 
+export const ADITIVO_TIPO_ALTERACAO_PRAZO = "Alteração de prazo";
+
 export const ADITIVO_TIPOS: Option[] = [
   { value: "Inclusão de módulo", label: "Inclusão de módulo", tone: "primary" },
   { value: "Exclusão de módulo", label: "Exclusão de módulo", tone: "warning" },
-  { value: "Alteração de prazo", label: "Alteração de prazo", tone: "primary" },
+  { value: ADITIVO_TIPO_ALTERACAO_PRAZO, label: ADITIVO_TIPO_ALTERACAO_PRAZO, tone: "primary" },
   { value: "Alteração de valor", label: "Alteração de valor", tone: "primary" },
   { value: "Alteração contratual", label: "Alteração contratual", tone: "muted" },
 ];

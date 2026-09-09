@@ -1,4 +1,4 @@
-import { Download, Link2, Link2Off, Paperclip, Plus, Save } from "lucide-react";
+import { Download, Link2, Link2Off, Paperclip, Save } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
@@ -13,30 +13,25 @@ import {
   eventos,
   municipios,
 } from "@/db/schema";
-import { FileInput } from "@/components/file-input";
+import { AditivoForm } from "@/components/aditivo-form";
 import { DocumentoForm } from "@/components/registry-forms";
-import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
-import { Badge, Empty, Field, Panel, PanelHeader, Stat, btnPrimary, btnXs, btnXsGhost, inputCls, selectCls, textareaCls } from "@/components/ui";
+import { SubmitButton } from "@/components/dialog";
+import { Badge, Empty, Panel, PanelHeader, Stat, btnXs, btnXsGhost, selectCls } from "@/components/ui";
 import {
-  createAditivo,
   desvincularModulo,
   setContratoSituacao,
   vincularModulo,
 } from "@/lib/actions";
 import {
-  ADITIVO_TIPOS,
   CONTRATO_SITUACOES,
-  DOCUMENTO_TIPOS,
   EVENTO_TIPOS,
   optLabel,
   optTone,
 } from "@/lib/constants";
 import { contratoView, syncPendencias } from "@/lib/domain";
-import { formatDate, formatDateTime, todayISO } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.txt,.csv,.rtf,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.bmp";
 
 export default async function ContratoDetailPage({
   params,
@@ -186,57 +181,7 @@ export default async function ContratoDetailPage({
             title="Aditivos"
             description="O histórico original nunca é apagado"
             right={
-              clienteEncerrado ? null : (
-              <Dialog
-                title="Novo aditivo"
-                description="Inclusão/exclusão de módulo, prazo, valor ou alteração contratual."
-                trigger={
-                  <button type="button" className={btnXsGhost}>
-                    <Plus className="h-3.5 w-3.5" /> Novo
-                  </button>
-                }
-              >
-                <DialogForm action={createAditivo}>
-                  <input type="hidden" name="contratoId" value={c.id} />
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Field label="Tipo">
-                      <select name="tipo" className={selectCls} defaultValue="inclusao_modulo">
-                        {ADITIVO_TIPOS.map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Data">
-                      <input type="date" name="data" defaultValue={todayISO()} className={inputCls} />
-                    </Field>
-                  </div>
-                  <Field label="Descrição">
-                    <textarea name="descricao" required rows={3} className={textareaCls} placeholder="Ex.: Inclusão do módulo Portal na base Prefeitura." />
-                  </Field>
-                  <div className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
-                    <p className="text-sm font-semibold text-app-foreground">Anexo do aditivo</p>
-                    <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Field label="Tipo do documento">
-                        <select name="documentoTipo" className={selectCls} defaultValue="aditivo">
-                          {DOCUMENTO_TIPOS.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Nome de exibicao">
-                        <input name="documentoNome" className={inputCls} placeholder="Ex.: Aditivo assinado" />
-                      </Field>
-                      <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
-                        <FileInput name="arquivo" accept={FILE_ACCEPT} />
-                      </Field>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <SubmitButton className={btnPrimary}>Registrar aditivo</SubmitButton>
-                  </div>
-                </DialogForm>
-              </Dialog>
-              )
+              clienteEncerrado ? null : <AditivoForm contratoId={c.id} dataFimAtual={c.dataFim} />
             }
           />
           <div className="flex flex-col gap-2 p-3 sm:p-4">
@@ -250,6 +195,11 @@ export default async function ContratoDetailPage({
                     <span className="text-xs text-app-muted-foreground">{formatDate(a.data)}</span>
                   </div>
                   <p className="mt-1.5 text-sm text-app-foreground">{a.descricao}</p>
+                  {a.novaDataFim ? (
+                    <p className="mt-1 text-xs font-medium text-app-muted-foreground">
+                      Nova vigência final: {formatDate(a.novaDataFim)}
+                    </p>
+                  ) : null}
                 </div>
               ))
             )}

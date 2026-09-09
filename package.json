@@ -6,7 +6,7 @@
     "build": "next build",
     "start": "node scripts/next-with-env-port.mjs start",
     "db:doctor": "node scripts/db-doctor.mjs",
-    "db:schema": "node scripts/db-apply-sql.mjs migrations/002_current_raroleads_schema.sql migrations/004_add_cliente_nome.sql migrations/005_create_base_responsaveis.sql migrations/006_create_modulo_responsaveis.sql migrations/007_add_documento_upload_metadata.sql migrations/008_add_documento_aditivo_id.sql",
+    "db:schema": "node scripts/db-apply-sql.mjs migrations/002_current_raroleads_schema.sql migrations/004_add_cliente_nome.sql migrations/005_create_base_responsaveis.sql migrations/006_create_modulo_responsaveis.sql migrations/007_add_documento_upload_metadata.sql migrations/008_add_documento_aditivo_id.sql migrations/009_add_aditivo_nova_data_fim.sql",
     "db:seed": "node scripts/db-apply-sql.mjs migrations/003_seed_data.sql",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
