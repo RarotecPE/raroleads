@@ -44,6 +44,7 @@ const int = (fd: FormData, k: string) => {
 const done = () => revalidatePath("/", "layout");
 const newId = () => crypto.randomUUID();
 const CLIENTE_ENCERRADO = "cliente_encerrado";
+const MODULO_DUPLICADO_MESSAGE = "Módulo já vinculado a base!";
 
 async function assertClienteOperacional(municipioId: string | null | undefined) {
   if (!municipioId) return;
@@ -69,6 +70,12 @@ async function assertModuloOperacional(baseModuleId: string) {
   }
   await assertBaseOperacional(modulo.baseId);
   return modulo;
+}
+
+async function hasModuloNaBase(baseId: string, nome: string) {
+  const modulos = await db.select().from(baseModules).where(eq(baseModules.baseId, baseId));
+  const normalizedNome = norm(nome);
+  return modulos.some((modulo) => norm(modulo.nome) === normalizedNome);
 }
 
 async function assertContratoOperacional(contratoId: string) {
@@ -278,6 +285,10 @@ export async function createModulo(fd: FormData) {
   const responsavelCelular = phoneDigits(fd, "responsavelCelular");
   const deveCriarResponsavel = !!responsavelNome || !!responsavelEmail || !!responsavelCelular;
 
+  if (await hasModuloNaBase(baseId, nome)) {
+    throw new Error(MODULO_DUPLICADO_MESSAGE);
+  }
+
   if (deveCriarResponsavel && !responsavelNome) {
     throw new Error("Informe o nome do responsavel pelo modulo, ou deixe todos os campos de responsavel vazios.");
   }
@@ -331,7 +342,7 @@ export async function createModulosEmGrupo(fd: FormData) {
   const basesParaCriar = selectedBases.filter((base) => !existingBaseIds.has(base.id));
 
   if (basesParaCriar.length === 0) {
-    throw new Error("As bases selecionadas ja possuem esse modulo.");
+    throw new Error(MODULO_DUPLICADO_MESSAGE);
   }
 
   const rows = await db.transaction(async (tx) => tx

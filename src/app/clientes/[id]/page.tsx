@@ -222,6 +222,7 @@ export default async function ClienteDetailPage({
                       <ModuloForm
                         baseId={b.id}
                         municipioId={m.id}
+                        modulos={bMods.map((modulo) => ({ nome: modulo.nome }))}
                         trigger={
                           <button type="button" className={btnXsGhost}>
                             <Plus className="h-3.5 w-3.5" /> Novo módulo

@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import type { FormEventHandler, ReactNode } from "react";
 import { BaseFormFields } from "@/components/base-form-fields";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import { FileInput } from "@/components/file-input";
@@ -29,6 +31,7 @@ import {
   PROPOSTA_SITUACOES,
   PROPOSTA_TIPOS,
 } from "@/lib/constants";
+import { norm } from "@/lib/utils";
 
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.txt,.csv,.rtf,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.bmp";
 
@@ -72,18 +75,32 @@ export function ModuloForm({
   trigger,
   baseId,
   municipioId,
+  modulos = [],
 }: {
   trigger: ReactNode;
   baseId: string;
   municipioId: string;
+  modulos?: { nome: string }[];
 }) {
+  const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+    const formData = new FormData(event.currentTarget);
+    const nome = formData.get("nome");
+    const normalizedNome = typeof nome === "string" ? norm(nome) : "";
+    const exists = !!normalizedNome && modulos.some((modulo) => norm(modulo.nome) === normalizedNome);
+
+    if (exists) {
+      event.preventDefault();
+      window.alert("Módulo já vinculado a base!");
+    }
+  };
+
   return (
     <Dialog
       trigger={trigger}
       title="Novo módulo"
       description="Módulo é um produto/sistema disponibilizado dentro da base."
     >
-      <DialogForm action={createModulo}>
+      <DialogForm action={createModulo} onSubmit={handleSubmit}>
         <input type="hidden" name="baseId" value={baseId} />
         <input type="hidden" name="municipioId" value={municipioId} />
         <Field label="Nome do módulo" hint="Sugestões do catálogo; texto livre permitido.">
