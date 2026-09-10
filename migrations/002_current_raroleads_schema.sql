@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS "eventos" (
   "base_id" text,
   "base_module_id" text,
   "contrato_id" text,
+  "aditivo_id" text,
   "tipo" text NOT NULL,
   "descricao" text NOT NULL,
   "data" date NOT NULL,
@@ -126,7 +127,9 @@ CREATE TABLE IF NOT EXISTS "eventos" (
   CONSTRAINT "eventos_base_module_id_base_modules_id_fk"
     FOREIGN KEY ("base_module_id") REFERENCES "base_modules" ("id"),
   CONSTRAINT "eventos_contrato_id_contratos_id_fk"
-    FOREIGN KEY ("contrato_id") REFERENCES "contratos" ("id")
+    FOREIGN KEY ("contrato_id") REFERENCES "contratos" ("id"),
+  CONSTRAINT "eventos_aditivo_id_aditivos_id_fk"
+    FOREIGN KEY ("aditivo_id") REFERENCES "aditivos" ("id")
 );
 
 CREATE TABLE IF NOT EXISTS "documentos" (

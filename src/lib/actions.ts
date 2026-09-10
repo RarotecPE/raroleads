@@ -10,6 +10,7 @@ import {
   contratoModulos,
   contratos,
   documentos,
+  eventos,
   municipios,
   moduloResponsaveis,
   pendencias,
@@ -17,7 +18,13 @@ import {
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
 import { cnpjDigits } from "@/lib/cnpj";
-import { ADITIVO_TIPO_ALTERACAO_PRAZO, normalizeContratoSituacao, optLabel } from "@/lib/constants";
+import {
+  ADITIVO_TIPO_ALTERACAO_PRAZO,
+  ADITIVO_TIPO_EXCLUSAO_MODULO,
+  ADITIVO_TIPO_INCLUSAO_MODULO,
+  normalizeContratoSituacao,
+  optLabel,
+} from "@/lib/constants";
 import { deleteDocumentFile, fileFromFormData, uploadDocumentFile } from "@/lib/document-storage";
 import { logEvent, syncPendencias } from "@/lib/domain";
 import { norm } from "@/lib/utils";
@@ -706,15 +713,63 @@ export async function desvincularModulo(fd: FormData) {
 }
 
 export async function createAditivo(fd: FormData) {
-  await requireServerActionPermission();
+  const session = await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
   const c = await assertContratoOperacional(contratoId);
   const tipo = str(fd, "tipo") ?? "alteracao_contratual";
+  const isInclusaoModulo = tipo === ADITIVO_TIPO_INCLUSAO_MODULO;
+  const isExclusaoModulo = tipo === ADITIVO_TIPO_EXCLUSAO_MODULO;
+  const isAlteracaoModulos = isInclusaoModulo || isExclusaoModulo;
+  const baseModuleIds = [
+    ...new Set(
+      fd
+        .getAll("baseModuleIds")
+        .filter((value): value is string => typeof value === "string" && value.trim() !== "")
+        .map((value) => value.trim()),
+    ),
+  ];
+
+  if (isAlteracaoModulos && baseModuleIds.length === 0) {
+    throw new Error("Selecione ao menos um módulo para registrar este aditivo.");
+  }
+
+  const selectedModules = isAlteracaoModulos
+    ? await db.select().from(baseModules).where(inArray(baseModules.id, baseModuleIds))
+    : [];
+  const selectedBaseIds = [...new Set(selectedModules.map((modulo) => modulo.baseId))];
+  const selectedBases = selectedBaseIds.length
+    ? await db.select().from(bases).where(inArray(bases.id, selectedBaseIds))
+    : [];
+  const basesDoCliente = new Set(
+    selectedBases.filter((base) => base.municipioId === c.municipioId).map((base) => base.id),
+  );
+  if (
+    isAlteracaoModulos &&
+    (selectedModules.length !== baseModuleIds.length || selectedModules.some((modulo) => !basesDoCliente.has(modulo.baseId)))
+  ) {
+    throw new Error("Selecione apenas módulos cadastrados para o cliente deste contrato.");
+  }
+
+  if (isAlteracaoModulos) {
+    const vinculosAtuais = await db
+      .select({ baseModuleId: contratoModulos.baseModuleId })
+      .from(contratoModulos)
+      .where(and(eq(contratoModulos.contratoId, contratoId), inArray(contratoModulos.baseModuleId, baseModuleIds)));
+    if (isInclusaoModulo && vinculosAtuais.length > 0) {
+      throw new Error("Um ou mais módulos selecionados já estão vinculados a este contrato.");
+    }
+    if (isExclusaoModulo && vinculosAtuais.length !== baseModuleIds.length) {
+      throw new Error("Um ou mais módulos selecionados não estão vinculados a este contrato.");
+    }
+  }
+
   const novaDataFim = tipo === ADITIVO_TIPO_ALTERACAO_PRAZO ? req(fd, "novaDataFim") : null;
   const arquivo = fileFromFormData(fd);
   if (!arquivo) throw new Error("Selecione um arquivo para anexar ao aditivo.");
+  const baseById = new Map(selectedBases.map((base) => [base.id, base]));
+  const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
   let uploadedKey: string | null = null;
-  const row = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const [aditivo] = await tx
       .insert(aditivos)
       .values({
@@ -728,6 +783,22 @@ export async function createAditivo(fd: FormData) {
 
     if (novaDataFim) {
       await tx.update(contratos).set({ dataFim: novaDataFim }).where(eq(contratos.id, contratoId));
+    }
+
+    if (isInclusaoModulo) {
+      await tx.insert(contratoModulos).values(
+        baseModuleIds.map((baseModuleId) => ({ contratoId, baseModuleId })),
+      );
+    }
+
+    if (isExclusaoModulo) {
+      const removidos = await tx
+        .delete(contratoModulos)
+        .where(and(eq(contratoModulos.contratoId, contratoId), inArray(contratoModulos.baseModuleId, baseModuleIds)))
+        .returning({ baseModuleId: contratoModulos.baseModuleId });
+      if (removidos.length !== baseModuleIds.length) {
+        throw new Error("Os vínculos do contrato foram alterados. Revise os módulos e tente novamente.");
+      }
     }
 
     if (arquivo) {
@@ -748,12 +819,43 @@ export async function createAditivo(fd: FormData) {
       });
     }
 
+    const eventDate = aditivo.data ?? today();
+    await tx.insert(eventos).values({
+      tipo: "aditivo_criado",
+      descricao: `Aditivo (${aditivo.tipo}): ${aditivo.descricao}`,
+      municipioId: c.municipioId,
+      contratoId,
+      aditivoId: aditivo.id,
+      data: eventDate,
+      usuario,
+    });
+
+    if (isAlteracaoModulos) {
+      await tx.insert(eventos).values(
+        selectedModules.map((modulo) => {
+          const baseNome = baseById.get(modulo.baseId)?.nome ?? "Base não encontrada";
+          return {
+            tipo: isInclusaoModulo ? "modulo_vinculado" : "modulo_desvinculado",
+            descricao: `Módulo ${modulo.nome} da base ${baseNome} ${
+              isInclusaoModulo ? "vinculado ao" : "desvinculado do"
+            } contrato por meio de aditivo.`,
+            municipioId: c.municipioId,
+            baseId: modulo.baseId,
+            baseModuleId: modulo.id,
+            contratoId,
+            aditivoId: aditivo.id,
+            data: eventDate,
+            usuario,
+          };
+        }),
+      );
+    }
+
     return aditivo;
   }).catch(async (error) => {
     if (uploadedKey) await deleteDocumentFile(uploadedKey).catch(() => undefined);
     throw error;
   });
-  await logEvent({ tipo: "aditivo_criado", descricao: `Aditivo (${row.tipo}): ${row.descricao}`, municipioId: c?.municipioId ?? null, contratoId, data: row.data ?? today() });
   await syncPendencias();
   done();
 }

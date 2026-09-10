@@ -88,6 +88,20 @@ const EXPECTED_ADITIVO_COLUMNS = [
   "created_at",
 ] as const;
 
+const EXPECTED_EVENTO_COLUMNS = [
+  "id",
+  "municipio_id",
+  "base_id",
+  "base_module_id",
+  "contrato_id",
+  "aditivo_id",
+  "tipo",
+  "descricao",
+  "data",
+  "usuario",
+  "created_at",
+] as const;
+
 export type DatabaseHealth =
   | {
       ok: true;
@@ -112,6 +126,7 @@ export type DatabaseHealth =
       missingModuloResponsavelColumns: string[];
       missingDocumentoColumns: string[];
       missingAditivoColumns: string[];
+      missingEventoColumns: string[];
     }
   | {
       ok: false;
@@ -161,6 +176,10 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
       "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
       ["aditivos"],
     );
+    const eventoColumns = await pool.query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+      ["eventos"],
+    );
 
     const tableNames = tables.rows.map((row) => row.table_name);
     const columnNames = columns.rows.map((row) => row.column_name);
@@ -168,6 +187,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
     const moduloResponsavelColumnNames = moduloResponsavelColumns.rows.map((row) => row.column_name);
     const documentoColumnNames = documentoColumns.rows.map((row) => row.column_name);
     const aditivoColumnNames = aditivoColumns.rows.map((row) => row.column_name);
+    const eventoColumnNames = eventoColumns.rows.map((row) => row.column_name);
     const missingTables = EXPECTED_TABLES.filter((table) => !tableNames.includes(table));
     const missingBaseModuleColumns = EXPECTED_BASE_MODULE_COLUMNS.filter((column) => !columnNames.includes(column));
     const missingClienteColumns = EXPECTED_CLIENTE_COLUMNS.filter((column) => !clienteColumnNames.includes(column));
@@ -178,6 +198,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
       (column) => !documentoColumnNames.includes(column),
     );
     const missingAditivoColumns = EXPECTED_ADITIVO_COLUMNS.filter((column) => !aditivoColumnNames.includes(column));
+    const missingEventoColumns = EXPECTED_EVENTO_COLUMNS.filter((column) => !eventoColumnNames.includes(column));
 
     if (
       missingTables.length > 0 ||
@@ -185,7 +206,8 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
       missingClienteColumns.length > 0 ||
       missingModuloResponsavelColumns.length > 0 ||
       missingDocumentoColumns.length > 0 ||
-      missingAditivoColumns.length > 0
+      missingAditivoColumns.length > 0 ||
+      missingEventoColumns.length > 0
     ) {
       return {
         ok: false,
@@ -197,6 +219,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
         missingModuloResponsavelColumns,
         missingDocumentoColumns,
         missingAditivoColumns,
+        missingEventoColumns,
       };
     }
 

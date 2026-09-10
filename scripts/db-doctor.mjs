@@ -92,6 +92,20 @@ const expectedAditivoColumns = [
   "created_at",
 ];
 
+const expectedEventoColumns = [
+  "id",
+  "municipio_id",
+  "base_id",
+  "base_module_id",
+  "contrato_id",
+  "aditivo_id",
+  "tipo",
+  "descricao",
+  "data",
+  "usuario",
+  "created_at",
+];
+
 function safeError(error) {
   return {
     code: error?.code ?? error?.errno ?? "UNKNOWN",
@@ -153,6 +167,10 @@ try {
     "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
     ["aditivos"],
   );
+  const eventoColumns = await pool.query(
+    "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+    ["eventos"],
+  );
 
   const tableNames = tables.rows.map((row) => row.table_name);
   const columnNames = columns.rows.map((row) => row.column_name);
@@ -160,6 +178,7 @@ try {
   const moduloResponsavelColumnNames = moduloResponsavelColumns.rows.map((row) => row.column_name);
   const documentoColumnNames = documentoColumns.rows.map((row) => row.column_name);
   const aditivoColumnNames = aditivoColumns.rows.map((row) => row.column_name);
+  const eventoColumnNames = eventoColumns.rows.map((row) => row.column_name);
   const missingTables = expectedTables.filter((table) => !tableNames.includes(table));
   const missingBaseModuleColumns = expectedBaseModuleColumns.filter((column) => !columnNames.includes(column));
   const missingClienteColumns = expectedClienteColumns.filter((column) => !clienteColumnNames.includes(column));
@@ -170,13 +189,15 @@ try {
     (column) => !documentoColumnNames.includes(column),
   );
   const missingAditivoColumns = expectedAditivoColumns.filter((column) => !aditivoColumnNames.includes(column));
+  const missingEventoColumns = expectedEventoColumns.filter((column) => !eventoColumnNames.includes(column));
   const ok =
     missingTables.length === 0 &&
     missingBaseModuleColumns.length === 0 &&
     missingClienteColumns.length === 0 &&
     missingModuloResponsavelColumns.length === 0 &&
     missingDocumentoColumns.length === 0 &&
-    missingAditivoColumns.length === 0;
+    missingAditivoColumns.length === 0 &&
+    missingEventoColumns.length === 0;
 
   console.log(
     JSON.stringify(
@@ -196,6 +217,8 @@ try {
         missingDocumentoColumns,
         aditivoColumns: aditivoColumnNames,
         missingAditivoColumns,
+        eventoColumns: eventoColumnNames,
+        missingEventoColumns,
       },
       null,
       2,

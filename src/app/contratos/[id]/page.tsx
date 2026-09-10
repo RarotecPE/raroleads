@@ -71,6 +71,8 @@ export default async function ContratoDetailPage({
 
   const view = contratoView(c);
   const linked = new Set(vinculos.map((v) => v.baseModuleId));
+  const baseById = new Map(bs.map((base) => [base.id, base]));
+  const moduleById = new Map(mods.map((modulo) => [modulo.id, modulo]));
   const clienteEncerrado = m?.situacao === "cliente_encerrado";
 
   return (
@@ -185,27 +187,59 @@ export default async function ContratoDetailPage({
             title="Aditivos"
             description="O histórico original nunca é apagado"
             right={
-              !canManage || clienteEncerrado ? null : <AditivoForm contratoId={c.id} dataFimAtual={c.dataFim} />
+              !canManage || clienteEncerrado ? null : (
+                <AditivoForm
+                  contratoId={c.id}
+                  dataFimAtual={c.dataFim}
+                  bases={bs.map((base) => ({ id: base.id, nome: base.nome, tipo: base.tipo }))}
+                  modulos={mods.map((modulo) => ({ id: modulo.id, baseId: modulo.baseId, nome: modulo.nome }))}
+                  linkedModuleIds={[...linked]}
+                />
+              )
             }
           />
           <div className="flex flex-col gap-2 p-3 sm:p-4">
             {adts.length === 0 ? (
               <Empty title="Nenhum aditivo" />
             ) : (
-              adts.map((a) => (
-                <div key={a.id} className="rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge tone={optTone(a.tipo)}>{optLabel(a.tipo)}</Badge>
-                    <span className="text-xs text-app-muted-foreground">{formatDate(a.data)}</span>
+              adts.map((a) => {
+                const eventosDeModulo = evts.filter(
+                  (evento) =>
+                    evento.aditivoId === a.id &&
+                    !!evento.baseModuleId &&
+                    ["modulo_vinculado", "modulo_desvinculado"].includes(evento.tipo),
+                );
+                return (
+                  <div key={a.id} className="rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge tone={optTone(a.tipo)}>{optLabel(a.tipo)}</Badge>
+                      <span className="text-xs text-app-muted-foreground">{formatDate(a.data)}</span>
+                    </div>
+                    <p className="mt-1.5 text-sm text-app-foreground">{a.descricao}</p>
+                    {a.novaDataFim ? (
+                      <p className="mt-1 text-xs font-medium text-app-muted-foreground">
+                        Nova vigência final: {formatDate(a.novaDataFim)}
+                      </p>
+                    ) : null}
+                    {eventosDeModulo.length > 0 ? (
+                      <div className="mt-2 border-t border-app-border pt-2">
+                        <p className="text-xs font-semibold text-app-muted-foreground">Módulos afetados</p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {eventosDeModulo.map((evento) => {
+                            const modulo = moduleById.get(evento.baseModuleId!);
+                            const base = modulo ? baseById.get(modulo.baseId) : undefined;
+                            return (
+                              <Badge key={evento.id} tone={evento.tipo === "modulo_vinculado" ? "success" : "warning"}>
+                                {base?.nome ?? "Base"} · {modulo?.nome ?? "Módulo não encontrado"}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                  <p className="mt-1.5 text-sm text-app-foreground">{a.descricao}</p>
-                  {a.novaDataFim ? (
-                    <p className="mt-1 text-xs font-medium text-app-muted-foreground">
-                      Nova vigência final: {formatDate(a.novaDataFim)}
-                    </p>
-                  ) : null}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </Panel>

@@ -150,6 +150,7 @@ export const eventos = pgTable("eventos", {
   baseId: text("base_id").references(() => bases.id),
   baseModuleId: text("base_module_id").references(() => baseModules.id),
   contratoId: text("contrato_id").references(() => contratos.id),
+  aditivoId: text("aditivo_id").references(() => aditivos.id),
   tipo: text("tipo").notNull(),
   descricao: text("descricao").notNull(),
   data: date("data").notNull(),

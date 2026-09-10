@@ -39,6 +39,7 @@ export async function logEvent(e: {
   baseId?: string | null;
   baseModuleId?: string | null;
   contratoId?: string | null;
+  aditivoId?: string | null;
   data?: string;
   usuario?: string | null;
 }) {
@@ -51,6 +52,7 @@ export async function logEvent(e: {
     baseId: e.baseId ?? null,
     baseModuleId: e.baseModuleId ?? null,
     contratoId: e.contratoId ?? null,
+    aditivoId: e.aditivoId ?? null,
     data: e.data ?? todayISO(),
     usuario,
   });
