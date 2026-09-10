@@ -7,11 +7,14 @@ import { Badge, Empty, Panel, PanelHeader, Stat, btnPrimary } from "@/components
 import { optLabel } from "@/lib/constants";
 import { contratoView, syncPendencias } from "@/lib/domain";
 import { formatDate } from "@/lib/utils";
+import { getCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContratosPage() {
   await syncPendencias();
+  const session = await getCurrentSession();
+  const canManage = session?.permissions.manage === true;
   const [cs, ms, cms] = await Promise.all([
     db.select().from(contratos),
     db.select().from(municipios),
@@ -42,7 +45,7 @@ export default async function ContratosPage() {
         <PanelHeader
           title="Contratos"
           description="Um contrato pode contemplar múltiplas bases e módulos"
-          right={
+          right={canManage ? (
             <ContratoForm
               municipios={ms.map((m) => ({ id: m.id, nome: m.clienteNome }))}
               trigger={
@@ -51,7 +54,7 @@ export default async function ContratosPage() {
                 </button>
               }
             />
-          }
+          ) : null}
         />
         <div className="overflow-x-auto">
           {ordenados.length === 0 ? (

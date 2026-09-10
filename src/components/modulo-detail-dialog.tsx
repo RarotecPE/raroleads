@@ -78,7 +78,7 @@ export function ModuloDetailDialog({
         </div>
         {readOnly ? (
           <p className="rounded-app-md border border-app-border bg-app-surface px-3 py-2 text-xs font-medium text-app-muted-foreground">
-            Cliente encerrado. As ações operacionais deste módulo estão bloqueadas.
+            Modo somente leitura. As ações operacionais deste módulo estão bloqueadas.
           </p>
         ) : null}
 

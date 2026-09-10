@@ -162,7 +162,7 @@ export async function getSessionFromCookieStore(store: CookieStore): Promise<App
 
     return {
       role: roleKey,
-      roleLabel: payload.data.role.nome || ROLE_LABELS[roleKey],
+      roleLabel: ROLE_LABELS[roleKey],
       user: payload.data.user,
       permissions: permissionsForRole(roleKey),
     };

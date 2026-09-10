@@ -1,4 +1,4 @@
-export type AppRole = "admin" | "gestor" | "visualizador";
+export type AppRole = "usuario" | "gestor";
 
 export interface AuthUser {
   id: string;

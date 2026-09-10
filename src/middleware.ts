@@ -1,9 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { isAuthorizedRole } from "@/lib/auth-permissions";
 
 const DEFAULT_CLIENT_ID = "raroleads";
-const AUTHORIZED_ROLES = new Set(["admin", "gestor", "visualizador"]);
-
 function isPublicPath(pathname: string) {
   return (
     pathname === "/login" ||
@@ -44,7 +43,7 @@ export async function middleware(request: NextRequest) {
 
     const payload = await response.json();
     const role = payload?.data?.role?.chave;
-    if (!payload?.success || !payload?.data?.active || !AUTHORIZED_ROLES.has(role)) {
+    if (!payload?.success || !payload?.data?.active || !isAuthorizedRole(role)) {
       return loginRedirect(request);
     }
 

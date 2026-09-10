@@ -1,17 +1,15 @@
 import type { AppPermissions, AppRole } from "@/lib/auth-types";
 
-export const AUTHORIZED_ROLES = ["admin", "gestor", "visualizador"] as const;
+export const AUTHORIZED_ROLES = ["usuario", "gestor"] as const;
 
 export const ROLE_LABELS: Record<AppRole, string> = {
-  admin: "Administrador",
+  usuario: "Usuário",
   gestor: "Gestor",
-  visualizador: "Visualizador",
 };
 
 export const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
-  admin: "Acesso completo ao Central de Clientes.",
+  usuario: "Pode consultar os dados, sem alterar registros.",
   gestor: "Pode consultar e manter dados operacionais.",
-  visualizador: "Pode consultar os dados, sem alterar registros.",
 };
 
 export function isAuthorizedRole(role: string | null | undefined): role is AppRole {
@@ -21,7 +19,7 @@ export function isAuthorizedRole(role: string | null | undefined): role is AppRo
 export function permissionsForRole(role: AppRole): AppPermissions {
   return {
     view: true,
-    manage: role === "admin" || role === "gestor",
+    manage: role === "gestor",
   };
 }
 

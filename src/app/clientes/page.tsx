@@ -6,6 +6,7 @@ import { ClienteForm } from "@/components/cliente-form";
 import { Badge, Empty, Panel, PanelHeader, btnPrimary } from "@/components/ui";
 import { MUNICIPIO_SITUACOES, optLabel, optTone } from "@/lib/constants";
 import { syncPendencias } from "@/lib/domain";
+import { getCurrentSession } from "@/lib/auth";
 import { cn, countBy, norm } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,8 @@ export default async function ClientesPage({
   searchParams: Promise<{ q?: string; s?: string }>;
 }) {
   await syncPendencias();
+  const session = await getCurrentSession();
+  const canManage = session?.permissions.manage === true;
   const { q, s } = await searchParams;
 
   const [ms, bs, mods, cs, pends] = await Promise.all([
@@ -49,7 +52,7 @@ export default async function ClientesPage({
         <PanelHeader
           title="Clientes"
           description="Cadastro principal dos clientes e seus municipios vinculados"
-          right={
+          right={canManage ? (
             <ClienteForm
               trigger={
                 <button type="button" className={btnPrimary}>
@@ -57,7 +60,7 @@ export default async function ClientesPage({
                 </button>
               }
             />
-          }
+          ) : null}
         />
         <div className="flex flex-col gap-3 border-b border-app-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <form className="relative w-full sm:max-w-xs">

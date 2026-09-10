@@ -30,6 +30,7 @@ import {
 } from "@/lib/constants";
 import { contratoView, syncPendencias } from "@/lib/domain";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { getCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,8 @@ export default async function ContratoDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getCurrentSession();
+  const canManage = session?.permissions.manage === true;
   await syncPendencias();
 
   const [c] = await db.select().from(contratos).where(eq(contratos.id, id));
@@ -87,7 +90,7 @@ export default async function ContratoDetailPage({
             </p>
             {c.observacoes ? <p className="mt-2 max-w-2xl text-sm text-app-muted-foreground">{c.observacoes}</p> : null}
           </div>
-          {clienteEncerrado ? null : (
+          {!canManage || clienteEncerrado ? null : (
           <form action={setContratoSituacao} className="flex items-center gap-2">
             <input type="hidden" name="id" value={c.id} />
             <label className="sr-only" htmlFor="situacao">Situação do contrato</label>
@@ -139,7 +142,7 @@ export default async function ContratoDetailPage({
                         return (
                           <div key={mo.id} className="flex items-center justify-between gap-3 rounded-app-md bg-app-surface px-3 py-2">
                             <span className="text-sm text-app-foreground">{mo.nome}</span>
-                            {clienteEncerrado ? (
+                            {!canManage || clienteEncerrado ? (
                               <Badge tone={isLinked ? "success" : "muted"}>{isLinked ? "Vinculado" : "Nao vinculado"}</Badge>
                             ) : (
                             <form action={isLinked ? desvincularModulo : vincularModulo}>
@@ -181,7 +184,7 @@ export default async function ContratoDetailPage({
             title="Aditivos"
             description="O histórico original nunca é apagado"
             right={
-              clienteEncerrado ? null : <AditivoForm contratoId={c.id} dataFimAtual={c.dataFim} />
+              !canManage || clienteEncerrado ? null : <AditivoForm contratoId={c.id} dataFimAtual={c.dataFim} />
             }
           />
           <div className="flex flex-col gap-2 p-3 sm:p-4">
@@ -211,7 +214,7 @@ export default async function ContratoDetailPage({
           <PanelHeader
             title="Documentos do contrato"
             right={
-              clienteEncerrado ? null : (
+              !canManage || clienteEncerrado ? null : (
               <DocumentoForm
                 municipioId={c.municipioId}
                 contratoId={c.id}

@@ -10,6 +10,7 @@ import { createPendencia, resolverPendencia } from "@/lib/actions";
 import { PENDENCIA_TIPOS } from "@/lib/constants";
 import { syncPendencias } from "@/lib/domain";
 import { cn, formatDateTime } from "@/lib/utils";
+import { getCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export default async function PendenciasPage({
   searchParams: Promise<{ s?: string; cliente?: string }>;
 }) {
   await syncPendencias();
+  const session = await getCurrentSession();
+  const canManage = session?.permissions.manage === true;
   const { s, cliente } = await searchParams;
   const filtro = s ?? "abertas";
 
@@ -115,7 +118,7 @@ export default async function PendenciasPage({
         <PanelHeader
           title="Pendências"
           description="Automáticas são geradas pelas regras; manuais podem ser criadas aqui"
-          right={
+          right={canManage ? (
             <Dialog
               title="Nova pendência manual"
               trigger={
@@ -141,7 +144,7 @@ export default async function PendenciasPage({
                 </div>
               </DialogForm>
             </Dialog>
-          }
+          ) : null}
         />
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-app-border px-4 py-3 sm:px-5">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -189,7 +192,7 @@ export default async function PendenciasPage({
                           {p.origem === "manual" ? <Badge tone="primary">manual</Badge> : null}
                           {p.situacao === "resolvida" ? <Badge tone="success">resolvida</Badge> : null}
                         </div>
-                        {p.situacao === "aberta" ? (
+                        {canManage && p.situacao === "aberta" ? (
                           <form action={resolverPendencia}>
                             <input type="hidden" name="id" value={p.id} />
                             <SubmitButton className={btnXsGhost} title="Resolver pendência" aria-label="Resolver pendência">

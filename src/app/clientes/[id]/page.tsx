@@ -43,6 +43,7 @@ import * as modActions from "@/lib/actions";
 import { formatCnpj } from "@/lib/cnpj";
 import { formatPhone } from "@/lib/phone";
 import { formatDate, formatDateTime, norm } from "@/lib/utils";
+import { getCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,8 @@ export default async function ClienteDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getCurrentSession();
+  const canManage = session?.permissions.manage === true;
   await syncPendencias();
 
   const [m] = await db.select().from(municipios).where(eq(municipios.id, id));
@@ -134,14 +137,14 @@ export default async function ClienteDetailPage({
               <p className="mt-1 max-w-2xl text-sm text-app-muted-foreground">{m.observacoes}</p>
             ) : null}
           </div>
-          <ClienteForm
+          {canManage ? <ClienteForm
             cliente={m}
             trigger={
               <button type="button" className={btnGhost}>
                 <Pencil className="h-4 w-4" /> Editar
               </button>
             }
-          />
+          /> : null}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Bases" value={bs.length} />
@@ -171,7 +174,7 @@ export default async function ClienteDetailPage({
           title="Bases e módulos"
           description="Contratar ≠ habilitar ≠ executar — cada estado é controlado separadamente"
           right={
-            clienteEncerrado ? null : (
+            !canManage || clienteEncerrado ? null : (
               <div className="flex flex-wrap items-center gap-2">
                 {bs.length > 0 ? (
                   <ModuloGrupoForm
@@ -207,7 +210,7 @@ export default async function ClienteDetailPage({
                       <Badge tone="muted">{b.tipo}</Badge>
                       {!b.cnpj ? <Badge tone="warning">Sem CNPJ</Badge> : <span className="text-xs text-app-muted-foreground">{formatCnpj(b.cnpj)}</span>}
                     </div>
-                    {!clienteEncerrado ? (
+                    {canManage && !clienteEncerrado ? (
                     <div className="flex flex-wrap items-center gap-1">
                       <BaseForm
                         municipioId={m.id}
@@ -256,7 +259,7 @@ export default async function ClienteDetailPage({
                                 contratos={contratosVinculados}
                                 responsaveis={rMods}
                                 actions={moduloActionHandlers}
-                                readOnly={clienteEncerrado}
+                                readOnly={!canManage || clienteEncerrado}
                               />
                               <Badge tone={state.tone}>{state.label}</Badge>
                               <div className="ml-auto flex flex-wrap items-center gap-3">
@@ -294,7 +297,7 @@ export default async function ClienteDetailPage({
           title="Responsáveis"
           description="Contatos vinculados aos módulos do cliente"
           right={
-            clienteEncerrado ? null : modulosResponsavelOptions.length > 0 ? (
+            !canManage || clienteEncerrado ? null : modulosResponsavelOptions.length > 0 ? (
               <ResponsavelModuloForm
                 municipioId={m.id}
                 modulos={modulosResponsavelOptions}
@@ -341,7 +344,7 @@ export default async function ClienteDetailPage({
                       {!hasContato ? <span>Contato pendente</span> : null}
                     </div>
                   </div>
-                  {!clienteEncerrado ? (
+                  {canManage && !clienteEncerrado ? (
                   <div className="flex items-center gap-1">
                     <ResponsavelModuloForm
                       municipioId={m.id}
@@ -375,7 +378,7 @@ export default async function ClienteDetailPage({
         <PanelHeader
           title="Contratos"
           right={
-            clienteEncerrado ? null : (
+            !canManage || clienteEncerrado ? null : (
               <ContratoForm
                 municipioId={m.id}
                 propostas={props.map((p) => ({ id: p.id, tipo: p.tipo, data: p.data }))}
@@ -425,7 +428,7 @@ export default async function ClienteDetailPage({
           <PanelHeader
             title="Propostas"
             right={
-              clienteEncerrado ? null : (
+              !canManage || clienteEncerrado ? null : (
                 <PropostaForm
                   municipioId={m.id}
                   trigger={
@@ -452,7 +455,7 @@ export default async function ClienteDetailPage({
                     {p.basesEnvolvidas ? ` · Bases: ${p.basesEnvolvidas}` : ""}
                     {p.modulosEnvolvidos ? ` · Módulos: ${p.modulosEnvolvidos}` : ""}
                   </p>
-                  {!clienteEncerrado ? (
+                  {canManage && !clienteEncerrado ? (
                     <div className="mt-2">
                       <PropostaSituacaoForm id={p.id} situacao={p.situacao} />
                     </div>
@@ -468,7 +471,7 @@ export default async function ClienteDetailPage({
           <PanelHeader
             title="Documentos"
             right={
-              clienteEncerrado ? null : (
+              !canManage || clienteEncerrado ? null : (
                 <DocumentoForm
                   municipioId={m.id}
                   contratos={cs.map((c) => ({ id: c.id, numero: c.numero }))}
@@ -525,7 +528,7 @@ export default async function ClienteDetailPage({
                   <div key={p.id} className="rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <Badge tone={PENDENCIA_TIPOS[p.tipo]?.tone ?? "muted"}>{PENDENCIA_TIPOS[p.tipo]?.label ?? p.tipo}</Badge>
-                      {!clienteEncerrado ? (
+                      {canManage && !clienteEncerrado ? (
                         <form action={resolverPendencia}>
                           <input type="hidden" name="id" value={p.id} />
                           <SubmitButton className={btnXsGhost} title="Resolver pendência" aria-label="Resolver pendência">
