@@ -382,6 +382,8 @@ export default async function ClienteDetailPage({
               <ContratoForm
                 municipioId={m.id}
                 propostas={props.map((p) => ({ id: p.id, tipo: p.tipo, data: p.data }))}
+                bases={bs.map((b) => ({ id: b.id, municipioId: b.municipioId, nome: b.nome, tipo: b.tipo }))}
+                modulos={mods.map((modulo) => ({ id: modulo.id, baseId: modulo.baseId, nome: modulo.nome }))}
                 trigger={
                   <button type="button" className={btnPrimary}>
                     <Plus className="h-4 w-4" /> Novo contrato

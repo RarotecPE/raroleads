@@ -145,16 +145,17 @@ function DialogSubmitCompletion({
 export function SubmitButton({
   children,
   className,
+  disabled,
   ...rest
 }: {
   children: ReactNode;
   className: string;
-} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "type" | "disabled" | "className" | "children">) {
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "type" | "className" | "children">) {
   const { pending } = useFormStatus();
   return (
     <>
       <OperationLoadingTracker active={pending} />
-      <button type="submit" disabled={pending} className={className} {...rest}>
+      <button type="submit" disabled={pending || disabled} className={className} {...rest}>
         {pending ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
         ) : null}

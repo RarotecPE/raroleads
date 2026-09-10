@@ -1,7 +1,7 @@
 import { FileText, Plus } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
-import { contratoModulos, contratos, municipios } from "@/db/schema";
+import { baseModules, bases, contratoModulos, contratos, municipios } from "@/db/schema";
 import { ContratoForm } from "@/components/contrato-form";
 import { Badge, Empty, Panel, PanelHeader, Stat, btnPrimary } from "@/components/ui";
 import { optLabel } from "@/lib/constants";
@@ -15,10 +15,12 @@ export default async function ContratosPage() {
   await syncPendencias();
   const session = await getCurrentSession();
   const canManage = session?.permissions.manage === true;
-  const [cs, ms, cms] = await Promise.all([
+  const [cs, ms, cms, bs, mods] = await Promise.all([
     db.select().from(contratos),
     db.select().from(municipios),
     db.select().from(contratoModulos),
+    db.select().from(bases),
+    db.select().from(baseModules),
   ]);
 
   const munById = new Map(ms.map((m) => [m.id, m]));
@@ -48,6 +50,8 @@ export default async function ContratosPage() {
           right={canManage ? (
             <ContratoForm
               municipios={ms.map((m) => ({ id: m.id, nome: m.clienteNome }))}
+              bases={bs.map((b) => ({ id: b.id, municipioId: b.municipioId, nome: b.nome, tipo: b.tipo }))}
+              modulos={mods.map((modulo) => ({ id: modulo.id, baseId: modulo.baseId, nome: modulo.nome }))}
               trigger={
                 <button type="button" className={btnPrimary}>
                   <Plus className="h-4 w-4" /> Novo contrato

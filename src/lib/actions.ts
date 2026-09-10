@@ -588,6 +588,33 @@ export async function createContrato(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   await assertClienteOperacional(municipioId);
+  const basesDoCliente = await db.select({ id: bases.id }).from(bases).where(eq(bases.municipioId, municipioId));
+  if (basesDoCliente.length === 0) {
+    throw new Error("O cliente não possui base cadastrada para serem vinculadas ao contrato.");
+  }
+
+  const baseModuleIds = [
+    ...new Set(
+      fd
+        .getAll("baseModuleIds")
+        .filter((value): value is string => typeof value === "string" && value.trim() !== "")
+        .map((value) => value.trim()),
+    ),
+  ];
+  if (baseModuleIds.length > 0) {
+    const modulosSelecionados = await db
+      .select({ id: baseModules.id, baseId: baseModules.baseId })
+      .from(baseModules)
+      .where(inArray(baseModules.id, baseModuleIds));
+    const basesValidas = new Set(basesDoCliente.map((base) => base.id));
+    if (
+      modulosSelecionados.length !== baseModuleIds.length ||
+      modulosSelecionados.some((modulo) => !basesValidas.has(modulo.baseId))
+    ) {
+      throw new Error("Selecione apenas bases e módulos cadastrados para este cliente.");
+    }
+  }
+
   const arquivo = fileFromFormData(fd);
   if (!arquivo) throw new Error("Selecione um arquivo para anexar ao contrato.");
   let uploadedKey: string | null = null;
@@ -623,6 +650,12 @@ export async function createContrato(fd: FormData) {
         tamanhoBytes: uploaded.size,
         arquivoNomeOriginal: uploaded.originalName,
       });
+    }
+
+    if (baseModuleIds.length > 0) {
+      await tx.insert(contratoModulos).values(
+        baseModuleIds.map((baseModuleId) => ({ contratoId: contrato.id, baseModuleId })),
+      );
     }
 
     return contrato;
