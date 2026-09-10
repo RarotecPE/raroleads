@@ -1,4 +1,4 @@
-import { Download, FileText, Mail, Paperclip, Pencil, Phone, Plus, Sparkles, Trash2, XCircle } from "lucide-react";
+import { Download, Eye, FileText, Mail, Paperclip, Pencil, Phone, Plus, Sparkles, Trash2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq, inArray } from "drizzle-orm";
@@ -43,6 +43,7 @@ import * as modActions from "@/lib/actions";
 import { formatCnpj } from "@/lib/cnpj";
 import { formatPhone } from "@/lib/phone";
 import { formatDate, formatDateTime, norm } from "@/lib/utils";
+import { isDocumentViewable } from "@/lib/document-view";
 import { getCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -501,12 +502,26 @@ export default async function ClienteDetailPage({
                       {d.propostaId ? ` · Proposta ${optLabel(propostaById.get(d.propostaId)?.tipo)}` : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <Badge tone={optTone(d.tipo)}>{optLabel(d.tipo)}</Badge>
                     {d.storageKey ? (
-                      <Link href={`/api/documentos/${d.id}/download`} className={btnXsGhost} title="Baixar documento" aria-label={`Baixar ${d.nome}`}>
-                        <Download className="h-3.5 w-3.5" /> Baixar
-                      </Link>
+                      <>
+                        {isDocumentViewable(d.mimeType, d.arquivoNomeOriginal ?? d.nome) ? (
+                          <Link
+                            href={`/api/documentos/${d.id}/view`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={btnXsGhost}
+                            title="Visualizar documento"
+                            aria-label={`Visualizar ${d.nome}`}
+                          >
+                            <Eye className="h-3.5 w-3.5" /> Visualizar
+                          </Link>
+                        ) : null}
+                        <Link href={`/api/documentos/${d.id}/download`} className={btnXsGhost} title="Baixar documento" aria-label={`Baixar ${d.nome}`}>
+                          <Download className="h-3.5 w-3.5" /> Baixar
+                        </Link>
+                      </>
                     ) : null}
                   </div>
                 </div>

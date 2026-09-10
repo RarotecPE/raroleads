@@ -1,4 +1,4 @@
-import { Download, Link2, Link2Off, Paperclip, Save } from "lucide-react";
+import { Download, Eye, Link2, Link2Off, Paperclip, Save } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
@@ -31,6 +31,7 @@ import {
 import { contratoView, syncPendencias } from "@/lib/domain";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { getCurrentSession } from "@/lib/auth";
+import { isDocumentViewable } from "@/lib/document-view";
 
 export const dynamic = "force-dynamic";
 
@@ -240,12 +241,26 @@ export default async function ContratoDetailPage({
                       {d.aditivoId ? " · Aditivo" : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <Badge tone={optTone(d.tipo)}>{optLabel(d.tipo)}</Badge>
                     {d.storageKey ? (
-                      <Link href={`/api/documentos/${d.id}/download`} className={btnXsGhost} title="Baixar documento" aria-label={`Baixar ${d.nome}`}>
-                        <Download className="h-3.5 w-3.5" /> Baixar
-                      </Link>
+                      <>
+                        {isDocumentViewable(d.mimeType, d.arquivoNomeOriginal ?? d.nome) ? (
+                          <Link
+                            href={`/api/documentos/${d.id}/view`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={btnXsGhost}
+                            title="Visualizar documento"
+                            aria-label={`Visualizar ${d.nome}`}
+                          >
+                            <Eye className="h-3.5 w-3.5" /> Visualizar
+                          </Link>
+                        ) : null}
+                        <Link href={`/api/documentos/${d.id}/download`} className={btnXsGhost} title="Baixar documento" aria-label={`Baixar ${d.nome}`}>
+                          <Download className="h-3.5 w-3.5" /> Baixar
+                        </Link>
+                      </>
                     ) : null}
                   </div>
                 </div>
