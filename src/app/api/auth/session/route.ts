@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clearAuthCookies, getSessionFromRequest, sessionToResponse, unauthenticatedResponse } from "@/lib/auth";
+import {
+  clearAuthCookies,
+  getLocalSessionFromCookieStore,
+  getRemoteSessionFromCookieStore,
+  sessionToResponse,
+  setLocalSessionCookie,
+  unauthenticatedResponse,
+} from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const session = await getSessionFromRequest(request);
+  const localSession = getLocalSessionFromCookieStore(request.cookies);
+  const session = localSession ?? await getRemoteSessionFromCookieStore(request.cookies);
   if (!session) {
     const response = NextResponse.json(unauthenticatedResponse());
     clearAuthCookies(response);
     return response;
   }
 
-  return NextResponse.json(sessionToResponse(session));
+  const response = NextResponse.json(sessionToResponse(session));
+  if (!localSession) setLocalSessionCookie(response, session);
+  return response;
 }

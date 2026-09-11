@@ -5,8 +5,9 @@ import {
   exchangeCodeForSession,
   getRaroNexusConfig,
   sanitizeNext,
+  setLocalSessionCookie,
 } from "@/lib/auth";
-import { isAuthorizedRole } from "@/lib/auth-permissions";
+import { isAuthorizedRole, permissionsForRole, ROLE_LABELS } from "@/lib/auth-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +108,12 @@ export async function GET(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: AUTH_COOKIE_MAX_AGE,
+    });
+    setLocalSessionCookie(response, {
+      role: roleKey,
+      roleLabel: ROLE_LABELS[roleKey],
+      user: payload.data.user,
+      permissions: permissionsForRole(roleKey),
     });
     response.cookies.delete(config.cookies.state);
     response.cookies.delete(config.cookies.next);

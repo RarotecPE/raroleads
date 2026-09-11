@@ -28,7 +28,7 @@ import {
   optLabel,
   optTone,
 } from "@/lib/constants";
-import { contratoView, syncPendencias } from "@/lib/domain";
+import { contratoView } from "@/lib/domain";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { getCurrentSession } from "@/lib/auth";
 import { isDocumentViewable } from "@/lib/document-view";
@@ -41,33 +41,26 @@ export default async function ContratoDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await getCurrentSession();
+  const [session, contratoRows] = await Promise.all([
+    getCurrentSession(),
+    db.select().from(contratos).where(eq(contratos.id, id)),
+  ]);
   const canManage = session?.permissions.manage === true;
-  await syncPendencias();
-
-  const [c] = await db.select().from(contratos).where(eq(contratos.id, id));
+  const [c] = contratoRows;
   if (!c) notFound();
 
-  const [m] = await db.select().from(municipios).where(eq(municipios.id, c.municipioId));
-  const bs = await db.select().from(bases).where(eq(bases.municipioId, c.municipioId));
+  const [municipioRows, bs, modsAll, vinculos, adts, docs, evts] = await Promise.all([
+    db.select().from(municipios).where(eq(municipios.id, c.municipioId)),
+    db.select().from(bases).where(eq(bases.municipioId, c.municipioId)),
+    db.select().from(baseModules),
+    db.select().from(contratoModulos).where(eq(contratoModulos.contratoId, id)),
+    db.select().from(aditivos).where(eq(aditivos.contratoId, id)).orderBy(desc(aditivos.data)),
+    db.select().from(documentos).where(eq(documentos.contratoId, id)),
+    db.select().from(eventos).where(eq(eventos.contratoId, id)).orderBy(desc(eventos.data), desc(eventos.createdAt)),
+  ]);
+  const [m] = municipioRows;
   const baseIds = new Set(bs.map((b) => b.id));
-  const modsAll = await db.select().from(baseModules);
   const mods = modsAll.filter((mo) => baseIds.has(mo.baseId));
-  const vinculos = await db
-    .select()
-    .from(contratoModulos)
-    .where(eq(contratoModulos.contratoId, id));
-  const adts = await db
-    .select()
-    .from(aditivos)
-    .where(eq(aditivos.contratoId, id))
-    .orderBy(desc(aditivos.data));
-  const docs = await db.select().from(documentos).where(eq(documentos.contratoId, id));
-  const evts = await db
-    .select()
-    .from(eventos)
-    .where(eq(eventos.contratoId, id))
-    .orderBy(desc(eventos.data), desc(eventos.createdAt));
 
   const view = contratoView(c);
   const linked = new Set(vinculos.map((v) => v.baseModuleId));

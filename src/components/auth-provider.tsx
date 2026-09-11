@@ -1,7 +1,7 @@
 "use client";
 
 import { LogOut, UserCircle } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AppPermissions, AppRole, AuthUser, SessionResponse } from "@/lib/auth-types";
 
@@ -23,7 +23,6 @@ function loginUrl(pathname: string) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,19 +33,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch("/api/auth/session", { cache: "no-store" });
       const data = (await response.json()) as SessionResponse;
       setSession(data);
-      if (!data.authenticated) router.replace(loginUrl(pathname));
+      if (!data.authenticated) router.replace(loginUrl(window.location.pathname + window.location.search));
     } catch {
       setSession({ authenticated: false, role: null, permissions: {} });
-      router.replace(loginUrl(pathname));
+      router.replace(loginUrl(window.location.pathname + window.location.search));
     } finally {
       setLoading(false);
     }
-  }, [pathname, router]);
+  }, [router]);
 
   const logout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST", cache: "no-store" }).catch(() => null);
-    router.replace(loginUrl(pathname));
-  }, [pathname, router]);
+    router.replace(loginUrl(window.location.pathname + window.location.search));
+  }, [router]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);
@@ -82,17 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [loading, logout, refresh, session],
   );
-
-  if (loading || !session?.authenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app-background px-4">
-        <div className="w-full max-w-sm rounded-app-lg border border-app-border bg-app-surface p-5">
-          <p className="text-sm font-semibold text-app-foreground">Verificando acesso</p>
-          <p className="mt-1 text-xs text-app-muted-foreground">Conectando com o RaroNexus...</p>
-        </div>
-      </div>
-    );
-  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

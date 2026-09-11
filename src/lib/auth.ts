@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS, canManage, isAuthorizedRole, permissionsForRole } from "@/lib/auth-permissions";
 import type { AppPermissions, AppSession, AuthRole, AuthUser } from "@/lib/auth-types";
+import { createLocalSessionToken, LOCAL_SESSION_MAX_AGE, verifyLocalSessionToken } from "@/lib/local-session";
 
 type CookieStore = ReadonlyRequestCookies | NextRequest["cookies"];
 
@@ -50,6 +51,7 @@ export function getRaroNexusConfig(request?: NextRequest) {
     redirectUri: appBaseUrl ? `${appBaseUrl}/api/auth/raronexus/callback` : null,
     cookies: {
       session: `${clientId}_global_session`,
+      localSession: "raroleads_app_session",
       state: `${clientId}_sso_state`,
       next: `${clientId}_sso_next`,
       mode: `${clientId}_sso_mode`,
@@ -90,6 +92,23 @@ export async function clearAuthCookiesFromStore() {
 
 function readToken(store: CookieStore) {
   return store.get(getRaroNexusConfig().cookies.session)?.value ?? null;
+}
+
+export function getLocalSessionFromCookieStore(store: CookieStore) {
+  const config = getRaroNexusConfig();
+  return verifyLocalSessionToken(store.get(config.cookies.localSession)?.value, config.clientSecret);
+}
+
+export function setLocalSessionCookie(response: NextResponse | Response, session: AppSession) {
+  const config = getRaroNexusConfig();
+  const token = createLocalSessionToken(session, config.clientSecret ?? "");
+  (response as NextResponse).cookies.set(config.cookies.localSession, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: LOCAL_SESSION_MAX_AGE,
+  });
 }
 
 export function sessionToResponse(session: AppSession) {
@@ -137,7 +156,7 @@ export async function exchangeCodeForSession(code: string, request: NextRequest)
   return response.json();
 }
 
-export async function getSessionFromCookieStore(store: CookieStore): Promise<AppSession | null> {
+export async function getRemoteSessionFromCookieStore(store: CookieStore): Promise<AppSession | null> {
   const token = readToken(store);
   if (!token) return null;
 
@@ -169,6 +188,10 @@ export async function getSessionFromCookieStore(store: CookieStore): Promise<App
   } catch {
     return null;
   }
+}
+
+export async function getSessionFromCookieStore(store: CookieStore): Promise<AppSession | null> {
+  return getLocalSessionFromCookieStore(store) ?? getRemoteSessionFromCookieStore(store);
 }
 
 export async function getSessionFromRequest(request: NextRequest) {

@@ -53,32 +53,30 @@ export default async function ClienteDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await getCurrentSession();
-  const canManage = session?.permissions.manage === true;
+  const sessionPromise = getCurrentSession();
   await syncPendencias();
+  const session = await sessionPromise;
+  const canManage = session?.permissions.manage === true;
 
-  const [m] = await db.select().from(municipios).where(eq(municipios.id, id));
+  const [municipioRows, bs, responsaveis, cs, props, docsList, evts, pends] = await Promise.all([
+    db.select().from(municipios).where(eq(municipios.id, id)),
+    db.select().from(bases).where(eq(bases.municipioId, id)),
+    db.select().from(moduloResponsaveis).where(eq(moduloResponsaveis.municipioId, id)),
+    db.select().from(contratos).where(eq(contratos.municipioId, id)),
+    db.select().from(propostas).where(eq(propostas.municipioId, id)),
+    db.select().from(documentos).where(eq(documentos.municipioId, id)),
+    db.select().from(eventos).where(eq(eventos.municipioId, id)).orderBy(desc(eventos.data), desc(eventos.createdAt)),
+    db.select().from(pendencias).where(eq(pendencias.municipioId, id)),
+  ]);
+  const [m] = municipioRows;
   if (!m) notFound();
 
-  const bs = await db.select().from(bases).where(eq(bases.municipioId, id));
-  const responsaveis = await db.select().from(moduloResponsaveis).where(eq(moduloResponsaveis.municipioId, id));
   const baseIds = bs.map((b) => b.id);
-  const mods = baseIds.length
-    ? await db.select().from(baseModules).where(inArray(baseModules.baseId, baseIds))
-    : [];
-  const cs = await db.select().from(contratos).where(eq(contratos.municipioId, id));
   const cIds = cs.map((c) => c.id);
-  const cms = cIds.length
-    ? await db.select().from(contratoModulos).where(inArray(contratoModulos.contratoId, cIds))
-    : [];
-  const props = await db.select().from(propostas).where(eq(propostas.municipioId, id));
-  const docsList = await db.select().from(documentos).where(eq(documentos.municipioId, id));
-  const evts = await db
-    .select()
-    .from(eventos)
-    .where(eq(eventos.municipioId, id))
-    .orderBy(desc(eventos.data), desc(eventos.createdAt));
-  const pends = await db.select().from(pendencias).where(eq(pendencias.municipioId, id));
+  const [mods, cms] = await Promise.all([
+    baseIds.length ? db.select().from(baseModules).where(inArray(baseModules.baseId, baseIds)) : Promise.resolve([]),
+    cIds.length ? db.select().from(contratoModulos).where(inArray(contratoModulos.contratoId, cIds)) : Promise.resolve([]),
+  ]);
 
   const conSet = contratadoSet(cms, cs);
   const vigentes = cs.filter((c) => c.situacao === "vigente").length;

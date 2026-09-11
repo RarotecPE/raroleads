@@ -5,23 +5,22 @@ import { baseModules, bases, contratoModulos, contratos, municipios } from "@/db
 import { ContratoForm } from "@/components/contrato-form";
 import { Badge, Empty, Panel, PanelHeader, Stat, btnPrimary } from "@/components/ui";
 import { optLabel } from "@/lib/constants";
-import { contratoView, syncPendencias } from "@/lib/domain";
+import { contratoView } from "@/lib/domain";
 import { formatDate } from "@/lib/utils";
 import { getCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContratosPage() {
-  await syncPendencias();
-  const session = await getCurrentSession();
-  const canManage = session?.permissions.manage === true;
-  const [cs, ms, cms, bs, mods] = await Promise.all([
+  const [session, cs, ms, cms, bs, mods] = await Promise.all([
+    getCurrentSession(),
     db.select().from(contratos),
     db.select().from(municipios),
     db.select().from(contratoModulos),
     db.select().from(bases),
     db.select().from(baseModules),
   ]);
+  const canManage = session?.permissions.manage === true;
 
   const munById = new Map(ms.map((m) => [m.id, m]));
   const views = cs.map((c) => ({ c, view: contratoView(c) }));

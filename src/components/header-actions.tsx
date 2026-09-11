@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Grid2X2, Grid3X3, LogOut, Moon, Sun } from "lucide-react";
+import { ExternalLink, Grid2X2, Grid3X3, LoaderCircle, LogOut, Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { HeaderDropdown, HeaderIconButton } from "@/components/header-dropdown";
 import { useAuth } from "@/components/auth-provider";
@@ -48,7 +48,9 @@ function HeaderUserAvatar() {
 
   return (
     <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-700 bg-slate-800 text-sm font-semibold text-slate-300">
-      {showImage ? (
+      {auth.loading ? (
+        <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-label="Carregando dados do usuario" />
+      ) : showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />
       ) : (
@@ -87,7 +89,7 @@ export function HeaderActions() {
   const [nexusProfileUrl, setNexusProfileUrl] = useState("");
   const [appsLoading, setAppsLoading] = useState(false);
   const [appsError, setAppsError] = useState("");
-  const displayName = auth.user?.nome || "Usuario";
+  const displayName = auth.loading ? "Carregando..." : auth.user?.nome || "Usuario";
 
   useEffect(() => {
     applyColorTheme(theme);
@@ -212,12 +214,12 @@ export function HeaderActions() {
               <HeaderUserAvatar />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">{displayName}</p>
-                <p className="truncate text-xs text-slate-500">{auth.user?.email}</p>
+                <p className="truncate text-xs text-slate-500">{auth.loading ? "Carregando dados..." : auth.user?.email}</p>
               </div>
             </div>
             <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
               <p className="text-[10px] uppercase tracking-wider text-slate-600">Perfil no RaroLeads</p>
-              <p className="text-sm font-medium text-slate-200">{auth.label}</p>
+              <p className="text-sm font-medium text-slate-200">{auth.loading ? "Carregando..." : auth.label}</p>
             </div>
           </div>
           <div className="space-y-2 p-2">

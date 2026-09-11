@@ -16,8 +16,7 @@ export default async function ClientesPage({
 }: {
   searchParams: Promise<{ q?: string; s?: string }>;
 }) {
-  await syncPendencias();
-  const session = await getCurrentSession();
+  const [session] = await Promise.all([getCurrentSession(), syncPendencias()]);
   const canManage = session?.permissions.manage === true;
   const { q, s } = await searchParams;
 
