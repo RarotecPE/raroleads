@@ -1,16 +1,12 @@
-import { CheckCircle2, Plus } from "lucide-react";
 import Link from "next/link";
 import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { baseModules, bases, contratos, municipios, pendencias } from "@/db/schema";
-import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import { PendenciasClienteFilter } from "@/components/pendencias-cliente-filter";
-import { Badge, Empty, Field, Panel, PanelHeader, Stat, btnPrimary, btnXsGhost, selectCls, textareaCls } from "@/components/ui";
-import { createPendencia, resolverPendencia } from "@/lib/actions";
+import { Badge, Empty, Panel, PanelHeader, Stat } from "@/components/ui";
 import { PENDENCIA_TIPOS } from "@/lib/constants";
 import { syncPendencias } from "@/lib/domain";
 import { cn, formatDateTime } from "@/lib/utils";
-import { getCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +22,6 @@ export default async function PendenciasPage({
   searchParams: Promise<{ s?: string; cliente?: string }>;
 }) {
   await syncPendencias();
-  const session = await getCurrentSession();
-  const canManage = session?.permissions.manage === true;
   const { s, cliente } = await searchParams;
   const filtro = s ?? "abertas";
 
@@ -117,34 +111,7 @@ export default async function PendenciasPage({
       <Panel>
         <PanelHeader
           title="Pendências"
-          description="Automáticas são geradas pelas regras; manuais podem ser criadas aqui"
-          right={canManage ? (
-            <Dialog
-              title="Nova pendência manual"
-              trigger={
-                <button type="button" className={btnPrimary}>
-                  <Plus className="h-4 w-4" /> Nova pendência
-                </button>
-              }
-            >
-              <DialogForm action={createPendencia}>
-                <Field label="Cliente">
-                  <select name="municipioId" className={selectCls} defaultValue="">
-                    <option value="">— Sem vínculo —</option>
-                    {ms.map((m) => (
-                      <option key={m.id} value={m.id}>{m.clienteNome}</option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Descrição">
-                  <textarea name="descricao" required rows={3} className={textareaCls} placeholder="Descreva a pendência…" />
-                </Field>
-                <div className="flex justify-end">
-                  <SubmitButton className={btnPrimary}>Criar pendência</SubmitButton>
-                </div>
-              </DialogForm>
-            </Dialog>
-          ) : null}
+          description="Geradas pelas regras e resolvidas automaticamente quando a condição é corrigida no sistema"
         />
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-app-border px-4 py-3 sm:px-5">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -189,17 +156,8 @@ export default async function PendenciasPage({
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge tone={PENDENCIA_TIPOS[p.tipo]?.tone ?? "muted"}>{PENDENCIA_TIPOS[p.tipo]?.label ?? p.tipo}</Badge>
-                          {p.origem === "manual" ? <Badge tone="primary">manual</Badge> : null}
                           {p.situacao === "resolvida" ? <Badge tone="success">resolvida</Badge> : null}
                         </div>
-                        {canManage && p.situacao === "aberta" ? (
-                          <form action={resolverPendencia}>
-                            <input type="hidden" name="id" value={p.id} />
-                            <SubmitButton className={btnXsGhost} title="Resolver pendência" aria-label="Resolver pendência">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-app-success" /> Resolver
-                            </SubmitButton>
-                          </form>
-                        ) : null}
                       </div>
                       <p className="mt-1.5 text-sm text-app-foreground">{p.descricao}</p>
                       <p className="mt-1 text-[11px] text-app-muted-foreground">

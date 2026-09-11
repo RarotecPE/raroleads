@@ -478,21 +478,3 @@ INSERT INTO "eventos" (
     'Equipe Interna'
   )
 ON CONFLICT ("id") DO NOTHING;
-
-INSERT INTO "pendencias" (
-  "id",
-  "tipo",
-  "descricao",
-  "origem",
-  "situacao",
-  "municipio_id"
-) VALUES
-  (
-    'pendencia_manual_vitoria_dados_gestao',
-    'manual',
-    'Confirmar dados administrativos da nova gestão em Vitória de Santo Antão.',
-    'manual',
-    'aberta',
-    'municipio_vitoria'
-  )
-ON CONFLICT ("id") DO NOTHING;

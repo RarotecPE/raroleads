@@ -8,7 +8,6 @@ import {
   documentos,
   eventos,
   municipios,
-  pendencias,
   propostas,
 } from "@/db/schema";
 import { syncPendencias } from "@/lib/domain";
@@ -287,14 +286,6 @@ async function main() {
     { municipioId: tacaratu.id, contratoId: ctTac.id, tipo: "contrato_situacao", descricao: "Contrato 014/2025 assinado e vigente.", data: d(-40), usuario: "Equipe Interna" },
     { municipioId: paulista.id, baseModuleId: pAlmox.id, tipo: "habilitado", descricao: "Almoxarifado habilitado na Saúde (pedido via WhatsApp).", data: d(-6), usuario: "Equipe Interna" },
   ]);
-
-  /* Pendência manual de exemplo */
-  await db.insert(pendencias).values({
-    tipo: "manual",
-    descricao: "Confirmar dados administrativos da nova gestão em Vitória de Santo Antão.",
-    origem: "manual",
-    municipioId: vitoria.id,
-  });
 
   await syncPendencias();
 

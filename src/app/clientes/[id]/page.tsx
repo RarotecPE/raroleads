@@ -1,4 +1,4 @@
-import { Download, Eye, FileText, Mail, Paperclip, Pencil, Phone, Plus, Sparkles, Trash2, XCircle } from "lucide-react";
+import { Download, Eye, FileText, Mail, Paperclip, Pencil, Phone, Plus, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq, inArray } from "drizzle-orm";
@@ -37,7 +37,6 @@ import {
   optLabel,
   optTone,
 } from "@/lib/constants";
-import { resolverPendencia } from "@/lib/actions";
 import { contratoView, contratadoSet, moduloState, syncPendencias } from "@/lib/domain";
 import * as modActions from "@/lib/actions";
 import { formatCnpj } from "@/lib/cnpj";
@@ -534,7 +533,7 @@ export default async function ClienteDetailPage({
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         {/* Pendências */}
         <Panel>
-          <PanelHeader title="Pendências" description="Automáticas reabrem se a condição persistir" />
+          <PanelHeader title="Pendências" description="Resolvidas automaticamente quando a condição é corrigida no sistema" />
           <div className="flex flex-col gap-2 p-3 sm:p-4">
             {pends.filter((p) => p.situacao === "aberta").length === 0 ? (
               <Empty title="Nenhuma pendência aberta" />
@@ -543,16 +542,8 @@ export default async function ClienteDetailPage({
                 .filter((p) => p.situacao === "aberta")
                 .map((p) => (
                   <div key={p.id} className="rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-start gap-2">
                       <Badge tone={PENDENCIA_TIPOS[p.tipo]?.tone ?? "muted"}>{PENDENCIA_TIPOS[p.tipo]?.label ?? p.tipo}</Badge>
-                      {canManage && !clienteEncerrado ? (
-                        <form action={resolverPendencia}>
-                          <input type="hidden" name="id" value={p.id} />
-                          <SubmitButton className={btnXsGhost} title="Resolver pendência" aria-label="Resolver pendência">
-                            <XCircle className="h-3.5 w-3.5" /> Resolver
-                          </SubmitButton>
-                        </form>
-                      ) : null}
                     </div>
                     <p className="mt-1.5 text-xs text-app-muted-foreground">{p.descricao}</p>
                     {p.baseModuleId && modById.get(p.baseModuleId) ? (

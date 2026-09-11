@@ -13,7 +13,6 @@ import {
   eventos,
   municipios,
   moduloResponsaveis,
-  pendencias,
   propostas,
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
@@ -110,15 +109,6 @@ async function assertResponsavelOperacional(responsavelId: string) {
   }
   await assertClienteOperacional(responsavel.municipioId);
   return responsavel;
-}
-
-async function assertPendenciaOperacional(pendenciaId: string) {
-  const [pendencia] = await db.select().from(pendencias).where(eq(pendencias.id, pendenciaId));
-  if (!pendencia) {
-    throw new Error("Pendencia nao encontrada.");
-  }
-  await assertClienteOperacional(pendencia.municipioId);
-  return pendencia;
 }
 
 async function assertDocumentoContextoOperacional(fd: FormData, municipioId: string) {
@@ -899,28 +889,5 @@ export async function createDocumento(fd: FormData) {
     if (!inserted) await deleteDocumentFile(uploaded.key).catch(() => undefined);
   }
   await syncPendencias();
-  done();
-}
-
-/* ---------------- Pendências ---------------- */
-
-export async function resolverPendencia(fd: FormData) {
-  await requireServerActionPermission();
-  const id = req(fd, "id");
-  const p = await assertPendenciaOperacional(id);
-  await db.update(pendencias).set({ situacao: "resolvida", resolvedAt: new Date() }).where(eq(pendencias.id, id));
-  await logEvent({ tipo: "pendencia_resolvida", descricao: `Pendência resolvida manualmente: ${p?.descricao ?? id}`, municipioId: p?.municipioId ?? null, baseId: p?.baseId ?? null, baseModuleId: p?.baseModuleId ?? null, contratoId: p?.contratoId ?? null });
-  done();
-}
-
-export async function createPendencia(fd: FormData) {
-  await requireServerActionPermission();
-  await assertClienteOperacional(req(fd, "municipioId"));
-  await db.insert(pendencias).values({
-    tipo: "manual",
-    descricao: req(fd, "descricao"),
-    origem: "manual",
-    municipioId: str(fd, "municipioId"),
-  });
   done();
 }

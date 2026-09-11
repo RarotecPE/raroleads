@@ -169,7 +169,6 @@ export const PENDENCIA_TIPOS: Record<string, { label: string; tone: Tone }> = {
   contrato_vencido: { label: "Contrato vencido", tone: "danger" },
   documento_ausente: { label: "Documento obrigatório ausente", tone: "warning" },
   base_incompleta: { label: "Base com informações insuficientes", tone: "muted" },
-  manual: { label: "Pendência manual", tone: "primary" },
 };
 
 export const EVENTO_TIPOS: Record<string, string> = {
