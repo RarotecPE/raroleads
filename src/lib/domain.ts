@@ -15,6 +15,7 @@ import {
 import { getCurrentSession } from "@/lib/auth";
 import type { Tone } from "@/lib/constants";
 import { MODULE_CATALOG } from "@/lib/constants";
+import { needsModuleEnabledEmailPending } from "@/lib/module-enabled-email";
 import { daysUntil, norm, todayISO } from "@/lib/utils";
 
 export type Municipio = typeof municipios.$inferSelect;
@@ -184,6 +185,18 @@ export async function syncPendencias() {
         key: `habilitado_sem_solicitacao:${m.id}`,
         tipo: "habilitado_sem_solicitacao",
         descricao: `Módulo habilitado sem registro de solicitação (${ctx}).`,
+        ...lixo,
+      });
+    }
+    if (needsModuleEnabledEmailPending({
+      enabledAt: m.habilitadoAt,
+      requesterEmail: m.solicitanteEmail,
+      sentAt: m.habilitacaoEmailEnviadoAt,
+    })) {
+      desired.push({
+        key: `email_habilitacao_nao_enviado:${m.id}`,
+        tipo: "email_habilitacao_nao_enviado",
+        descricao: `E-mail de aviso da habilitação não enviado ao solicitante (${ctx}).`,
         ...lixo,
       });
     }

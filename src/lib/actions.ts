@@ -26,6 +26,11 @@ import {
 } from "@/lib/constants";
 import { deleteDocumentFile, fileFromFormData, uploadDocumentFile } from "@/lib/document-storage";
 import { logEvent, syncPendencias } from "@/lib/domain";
+import {
+  attemptModuleEnabledEmail,
+  moduleEnabledRequesterEmail,
+  moduleEnabledRequestOrigin,
+} from "@/lib/module-enabled-email";
 import { norm } from "@/lib/utils";
 
 const str = (fd: FormData, k: string) => {
@@ -303,7 +308,6 @@ export async function createModulo(fd: FormData) {
         nome: responsavelNome,
         email: responsavelEmail,
         celular: responsavelCelular,
-        avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
       });
     }
 
@@ -367,7 +371,6 @@ export async function createResponsavelModulo(fd: FormData) {
     nome,
     email: str(fd, "email"),
     celular: phoneDigits(fd, "celular"),
-    avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
   });
   await logEvent({ tipo: "responsavel_criado", descricao: `Responsavel ${nome} vinculado ao modulo.`, municipioId, baseModuleId });
   done();
@@ -386,7 +389,6 @@ export async function updateResponsavelModulo(fd: FormData) {
       nome,
       email: str(fd, "email"),
       celular: phoneDigits(fd, "celular"),
-      avisoHabilitacaoEmail: str(fd, "avisoHabilitacaoEmail") === "on",
     })
     .where(eq(moduloResponsaveis.id, id));
   await logEvent({ tipo: "responsavel_atualizado", descricao: `Responsavel ${nome} atualizado.`, municipioId, baseModuleId });
@@ -408,18 +410,23 @@ export async function deleteResponsavelModulo(fd: FormData) {
 export async function habilitarModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
-  await assertModuloOperacional(id);
-  const municipioId = str(fd, "municipioId");
+  const modulo = await assertModuloOperacional(id);
+  const [base] = await db.select().from(bases).where(eq(bases.id, modulo.baseId));
+  if (!base) throw new Error("Base nao encontrada.");
+  const municipioId = base.municipioId;
   const solicitacaoAt = str(fd, "solicitacaoAt");
   const habilitadoAt = req(fd, "habilitadoAt");
   const solicitante = str(fd, "solicitante");
-  const origem = str(fd, "origem");
+  const solicitanteEmail = moduleEnabledRequesterEmail(solicitante, str(fd, "solicitanteEmail"));
+  const origem = moduleEnabledRequestOrigin(solicitante, str(fd, "origem"));
   await db
     .update(baseModules)
     .set({
       habilitadoAt,
       solicitacaoAt,
       solicitante,
+      solicitanteEmail,
+      habilitacaoEmailEnviadoAt: null,
       solicitacaoOrigem: origem,
       implantacaoStatus: str(fd, "implantacaoStatus") ?? undefined,
     })
@@ -434,6 +441,100 @@ export async function habilitarModulo(fd: FormData) {
     });
   }
   await logEvent({ tipo: "habilitado", descricao: "Módulo habilitado.", municipioId, baseModuleId: id, data: habilitadoAt });
+  const [cliente] = await db.select().from(municipios).where(eq(municipios.id, municipioId));
+  if (solicitanteEmail) {
+    const emailEnviado = await attemptModuleEnabledEmail({
+      moduleId: modulo.id,
+      moduleName: modulo.nome,
+      baseName: base.nome,
+      municipalityId: municipioId,
+      customerName: cliente?.clienteNome ?? "Cliente",
+      enabledAt: habilitadoAt,
+      requesterName: solicitante,
+      requesterEmail: solicitanteEmail,
+      requestOrigin: origem,
+    });
+
+    if (emailEnviado) {
+      await db
+        .update(baseModules)
+        .set({ habilitacaoEmailEnviadoAt: new Date() })
+        .where(eq(baseModules.id, id));
+      await logEvent({
+        tipo: "aviso_habilitacao_email_enviado",
+        descricao: "Aviso de habilitação enviado ao solicitante.",
+        municipioId,
+        baseModuleId: id,
+        data: habilitadoAt,
+      });
+    } else {
+      await logEvent({
+        tipo: "aviso_habilitacao_email_falhou",
+        descricao: "Não foi possível enviar o aviso de habilitação ao solicitante. Uma pendência foi gerada para reenvio.",
+        municipioId,
+        baseModuleId: id,
+        data: habilitadoAt,
+      });
+    }
+  } else {
+    await logEvent({
+      tipo: "aviso_habilitacao_email_ignorado",
+      descricao: "Aviso de habilitação não enviado porque nenhum solicitante foi informado.",
+      municipioId,
+      baseModuleId: id,
+      data: habilitadoAt,
+    });
+  }
+  await syncPendencias();
+  done();
+}
+
+export async function reenviarEmailHabilitacao(fd: FormData) {
+  await requireServerActionPermission();
+  const id = req(fd, "baseModuleId");
+  const [modulo] = await db.select().from(baseModules).where(eq(baseModules.id, id));
+  if (!modulo?.habilitadoAt) throw new Error("Módulo habilitado não encontrado.");
+
+  const solicitanteEmail = moduleEnabledRequesterEmail(modulo.solicitante, modulo.solicitanteEmail);
+  if (!solicitanteEmail) throw new Error("O módulo não possui e-mail de solicitante para reenvio.");
+
+  const [base] = await db.select().from(bases).where(eq(bases.id, modulo.baseId));
+  if (!base) throw new Error("Base nao encontrada.");
+  const [cliente] = await db.select().from(municipios).where(eq(municipios.id, base.municipioId));
+
+  const emailEnviado = await attemptModuleEnabledEmail({
+    moduleId: modulo.id,
+    moduleName: modulo.nome,
+    baseName: base.nome,
+    municipalityId: base.municipioId,
+    customerName: cliente?.clienteNome ?? "Cliente",
+    enabledAt: modulo.habilitadoAt,
+    requesterName: modulo.solicitante,
+    requesterEmail: solicitanteEmail,
+    requestOrigin: modulo.solicitacaoOrigem,
+  });
+
+  if (emailEnviado) {
+    await db
+      .update(baseModules)
+      .set({ habilitacaoEmailEnviadoAt: new Date() })
+      .where(eq(baseModules.id, id));
+    await logEvent({
+      tipo: "aviso_habilitacao_email_reenviado",
+      descricao: "Aviso de habilitação reenviado ao solicitante; pendência resolvida.",
+      municipioId: base.municipioId,
+      baseModuleId: id,
+      data: modulo.habilitadoAt,
+    });
+  } else {
+    await logEvent({
+      tipo: "aviso_habilitacao_email_reenvio_falhou",
+      descricao: "Nova tentativa de envio do aviso de habilitação falhou; pendência mantida.",
+      municipioId: base.municipioId,
+      baseModuleId: id,
+      data: modulo.habilitadoAt,
+    });
+  }
   await syncPendencias();
   done();
 }

@@ -162,6 +162,7 @@ export const CONTRATO_TIPOS: Option[] = [
 ]
 
 export const PENDENCIA_TIPOS: Record<string, { label: string; tone: Tone }> = {
+  email_habilitacao_nao_enviado: { label: "E-mail de habilitação não enviado", tone: "danger" },
   habilitado_sem_contrato: { label: "Habilitado sem contrato", tone: "danger" },
   habilitado_sem_solicitacao: { label: "Habilitado sem solicitação", tone: "warning" },
   contratado_nao_habilitado: { label: "Contratado não habilitado", tone: "warning" },
@@ -179,6 +180,11 @@ export const EVENTO_TIPOS: Record<string, string> = {
   modulo_criado: "Módulo criado",
   habilitacao_solicitada: "Habilitação solicitada",
   habilitado: "Módulo habilitado",
+  aviso_habilitacao_email_enviado: "Aviso de habilitação enviado",
+  aviso_habilitacao_email_falhou: "Falha no aviso de habilitação",
+  aviso_habilitacao_email_ignorado: "Aviso de habilitação não enviado",
+  aviso_habilitacao_email_reenviado: "Aviso de habilitação reenviado",
+  aviso_habilitacao_email_reenvio_falhou: "Falha no reenvio do aviso",
   migracao: "Migração",
   implantacao: "Implantação",
   execucao_iniciada: "Execução iniciada",

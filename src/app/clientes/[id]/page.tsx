@@ -104,6 +104,7 @@ export default async function ClienteDetailPage({
     execucao: modActions.execucaoModulo,
     desabilitar: modActions.desabilitarModulo,
     reabilitar: modActions.reabilitarModulo,
+    reenviarEmail: modActions.reenviarEmailHabilitacao,
   };
 
   const owned = new Set(mods.map((mo) => norm(mo.nome)));

@@ -52,9 +52,11 @@ export const baseModules = pgTable("base_modules", {
   tipo: text("tipo").notNull().default("sistema"),
   observacoes: text("observacoes"),
   solicitante: text("solicitante"),
+  solicitanteEmail: text("solicitante_email"),
   solicitacaoAt: date("solicitacao_at"),
   solicitacaoOrigem: text("solicitacao_origem"),
   habilitadoAt: date("habilitado_at"),
+  habilitacaoEmailEnviadoAt: timestamp("habilitacao_email_enviado_at"),
   migracaoInicio: date("migracao_inicio"),
   migracaoFim: date("migracao_fim"),
   implantacaoStatus: text("implantacao_status")

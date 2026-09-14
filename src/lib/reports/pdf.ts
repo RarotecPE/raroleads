@@ -263,7 +263,7 @@ function buildSections(tipo: ReportTipo, data: ReportData): ReportSection[] {
   if (tipo === "responsaveis-modulos") {
     return [{
       title: "Responsaveis",
-      headers: ["Cliente", "Base", "Modulo", "Responsavel", "Email", "Celular", "Aviso email"],
+      headers: ["Cliente", "Base", "Modulo", "Responsavel", "Email", "Celular"],
       empty: "Nenhum responsavel cadastrado.",
       rows: data.responsaveis.map((responsavel) => {
         const { modulo, base, cliente } = moduleContext(data, responsavel.baseModuleId);
@@ -274,7 +274,6 @@ function buildSections(tipo: ReportTipo, data: ReportData): ReportSection[] {
           responsavel.nome,
           responsavel.email,
           responsavel.celular,
-          responsavel.avisoHabilitacaoEmail ? "Sim" : "Nao",
         ].map(text);
       }),
     }];

@@ -126,15 +126,6 @@ export function ModuloForm({
             <Field label="Celular">
               <PhoneInput name="responsavelCelular" placeholder="(00)99999-9999" />
             </Field>
-            <label className="flex items-start gap-2 self-end text-sm text-app-foreground">
-              <input
-                type="checkbox"
-                name="avisoHabilitacaoEmail"
-                defaultChecked
-                className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
-              />
-              <span>Enviar aviso de habilitação por e-mail</span>
-            </label>
           </div>
         </div>
         <div className="flex justify-end">
@@ -160,7 +151,6 @@ export function ResponsavelModuloForm({
     nome: string;
     email: string | null;
     celular: string | null;
-    avisoHabilitacaoEmail: boolean;
   };
 }) {
   const isEdit = !!responsavel;
@@ -197,15 +187,6 @@ export function ResponsavelModuloForm({
           <Field label="Celular">
             <PhoneInput name="celular" defaultValue={responsavel?.celular} placeholder="(00)99999-9999" />
           </Field>
-          <label className="flex items-start gap-2 self-end text-sm text-app-foreground">
-            <input
-              type="checkbox"
-              name="avisoHabilitacaoEmail"
-              defaultChecked={responsavel?.avisoHabilitacaoEmail ?? true}
-              className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
-            />
-            <span>Enviar aviso de habilitacao por e-mail</span>
-          </label>
         </div>
         <div className="flex justify-end">
           <SubmitButton className={btnPrimary}>{isEdit ? "Salvar responsavel" : "Cadastrar responsavel"}</SubmitButton>

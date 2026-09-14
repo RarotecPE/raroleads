@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { Send } from "lucide-react";
 import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { baseModules, bases, contratos, municipios, pendencias } from "@/db/schema";
+import { SubmitButton } from "@/components/dialog";
 import { PendenciasClienteFilter } from "@/components/pendencias-cliente-filter";
-import { Badge, Empty, Panel, PanelHeader, Stat } from "@/components/ui";
+import { Badge, Empty, Panel, PanelHeader, Stat, btnXs } from "@/components/ui";
+import { reenviarEmailHabilitacao } from "@/lib/actions";
+import { getCurrentSession } from "@/lib/auth";
 import { PENDENCIA_TIPOS } from "@/lib/constants";
 import { syncPendencias } from "@/lib/domain";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -21,7 +25,10 @@ export default async function PendenciasPage({
 }: {
   searchParams: Promise<{ s?: string; cliente?: string }>;
 }) {
+  const sessionPromise = getCurrentSession();
   await syncPendencias();
+  const session = await sessionPromise;
+  const canManage = session?.permissions.manage === true;
   const { s, cliente } = await searchParams;
   const filtro = s ?? "abertas";
 
@@ -158,6 +165,14 @@ export default async function PendenciasPage({
                           <Badge tone={PENDENCIA_TIPOS[p.tipo]?.tone ?? "muted"}>{PENDENCIA_TIPOS[p.tipo]?.label ?? p.tipo}</Badge>
                           {p.situacao === "resolvida" ? <Badge tone="success">resolvida</Badge> : null}
                         </div>
+                        {canManage && p.situacao === "aberta" && p.tipo === "email_habilitacao_nao_enviado" && p.baseModuleId ? (
+                          <form action={reenviarEmailHabilitacao}>
+                            <input type="hidden" name="baseModuleId" value={p.baseModuleId} />
+                            <SubmitButton className={btnXs}>
+                              <Send className="h-3.5 w-3.5" /> Reenviar e-mail
+                            </SubmitButton>
+                          </form>
+                        ) : null}
                       </div>
                       <p className="mt-1.5 text-sm text-app-foreground">{p.descricao}</p>
                       <p className="mt-1 text-[11px] text-app-muted-foreground">

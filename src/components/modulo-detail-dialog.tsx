@@ -12,6 +12,7 @@ import { contratoView } from "@/lib/domain";
 import { DESABILITACAO_MOTIVOS, optLabel } from "@/lib/constants";
 import { formatDate, formatDateTime, todayISO } from "@/lib/utils";
 import { formatPhone } from "@/lib/phone";
+import { canRetryModuleEnabledEmail, needsModuleEnabledEmailPending } from "@/lib/module-enabled-email";
 import type { moduloResponsaveis } from "@/db/schema";
 
 type ModuloResponsavel = typeof moduloResponsaveis.$inferSelect;
@@ -22,6 +23,7 @@ type ModuloActions = {
   execucao: (fd: FormData) => void | Promise<void>;
   desabilitar: (fd: FormData) => void | Promise<void>;
   reabilitar: (fd: FormData) => void | Promise<void>;
+  reenviarEmail: (fd: FormData) => void | Promise<void>;
 };
 
 interface ModuloDetailDialogProps {
@@ -49,6 +51,13 @@ export function ModuloDetailDialog({
 }: ModuloDetailDialogProps) {
   const ativo = !modulo.desabilitadoAt;
   const habilitado = !!modulo.habilitadoAt;
+  const emailState = {
+    enabledAt: modulo.habilitadoAt,
+    requesterEmail: modulo.solicitanteEmail,
+    sentAt: modulo.habilitacaoEmailEnviadoAt,
+  };
+  const emailPending = needsModuleEnabledEmailPending(emailState);
+  const canRetryEmail = canRetryModuleEnabledEmail(emailState, readOnly);
 
   return (
     <Dialog
@@ -87,7 +96,26 @@ export function ModuloDetailDialog({
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Detail label="Solicitação" value={modulo.solicitacaoAt ? formatDate(modulo.solicitacaoAt) : "Não informada"} />
             <Detail label="Solicitante" value={modulo.solicitante ?? "Não informado"} />
+            <Detail label="E-mail do solicitante" value={modulo.solicitanteEmail ?? "Não informado"} />
             <Detail label="Origem" value={optLabel(modulo.solicitacaoOrigem)} />
+            <DetailAction
+              label="Aviso por e-mail"
+              value={
+                modulo.habilitacaoEmailEnviadoAt
+                  ? `Enviado em ${formatDateTime(modulo.habilitacaoEmailEnviadoAt)}`
+                  : emailPending
+                    ? "Falha no envio"
+                    : "Não solicitado"
+              }
+              action={canRetryEmail ? (
+                <form action={actions.reenviarEmail}>
+                  <input type="hidden" name="baseModuleId" value={modulo.id} />
+                  <SubmitButton className={btnXs}>
+                    <Mail className="h-3.5 w-3.5" /> Reenviar e-mail
+                  </SubmitButton>
+                </form>
+              ) : null}
+            />
             <DetailAction
               label="Habilitação"
               value={modulo.habilitadoAt ? formatDate(modulo.habilitadoAt) : "Não habilitado"}
@@ -302,15 +330,6 @@ export function ModuloDetailDialog({
                     <Field label="Celular">
                       <PhoneInput name="celular" placeholder="(00)99999-9999" />
                     </Field>
-                    <label className="flex items-start gap-2 self-end text-sm text-app-foreground">
-                      <input
-                        type="checkbox"
-                        name="avisoHabilitacaoEmail"
-                        defaultChecked
-                        className="mt-1 h-4 w-4 rounded border-app-border bg-app-surface text-app-primary"
-                      />
-                      <span>Enviar aviso de habilitacao por e-mail</span>
-                    </label>
                   </div>
                   <div className="flex justify-end">
                     <SubmitButton className={btnPrimary}>Cadastrar responsavel</SubmitButton>
@@ -345,9 +364,6 @@ export function ModuloDetailDialog({
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={responsavel.avisoHabilitacaoEmail ? "success" : "muted"}>
-                      Aviso por e-mail: {responsavel.avisoHabilitacaoEmail ? "Sim" : "Não"}
-                    </Badge>
                     <span className="text-[11px] text-app-muted-foreground">
                       Criado em {formatDateTime(responsavel.createdAt)}
                     </span>

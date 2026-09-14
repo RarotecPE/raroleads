@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEventHandler } from "react";
+import { useState, type FormEventHandler } from "react";
 import { DialogForm, SubmitButton } from "@/components/dialog";
 import { Field, btnXs, inputCls, selectCls } from "@/components/ui";
 import { HABILITACAO_ORIGENS } from "@/lib/constants";
@@ -20,6 +20,7 @@ export function HabilitarModuloForm({
   municipioId: string;
   solicitacaoAt: string | null;
 }) {
+  const [hasRequester, setHasRequester] = useState(false);
   const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     const formData = new FormData(event.currentTarget);
     const solicitante = formData.get("solicitante");
@@ -42,10 +43,27 @@ export function HabilitarModuloForm({
           <input type="date" name="habilitadoAt" required defaultValue={todayISO()} className={inputCls} />
         </Field>
         <Field label="Solicitante">
-          <input name="solicitante" placeholder="Quem solicitou" className={inputCls} />
+          <input
+            name="solicitante"
+            placeholder="Quem solicitou"
+            className={inputCls}
+            onChange={(event) => setHasRequester(event.target.value.trim() !== "")}
+          />
         </Field>
-        <Field label="Origem da solicitação">
-          <select name="origem" className={selectCls} defaultValue="">
+        <Field label="E-mail do solicitante" hint={hasRequester ? "Obrigatório quando o solicitante é informado." : "Opcional."}>
+          <input
+            name="solicitanteEmail"
+            type="email"
+            required={hasRequester}
+            placeholder="solicitante@cliente.gov.br"
+            className={inputCls}
+          />
+        </Field>
+        <Field
+          label="Origem da solicitação"
+          hint={hasRequester ? "Obrigatória quando o solicitante é informado." : "Opcional."}
+        >
+          <select name="origem" required={hasRequester} className={selectCls} defaultValue="">
             <option value="">—</option>
             {HABILITACAO_ORIGENS.map((origem) => (
               <option key={origem.value} value={origem.value}>
