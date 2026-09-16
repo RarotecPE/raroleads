@@ -3,15 +3,20 @@ import Link from "next/link";
 import { db } from "@/db";
 import { baseModules, bases, contratoModulos, contratos, municipios } from "@/db/schema";
 import { ContratoForm } from "@/components/contrato-form";
-import { Badge, Empty, Panel, PanelHeader, Stat, btnPrimary } from "@/components/ui";
-import { optLabel } from "@/lib/constants";
+import { Badge, Empty, Panel, PanelHeader, Stat, btnPrimary, btnSecondary, selectCls } from "@/components/ui";
+import { CONTRATO_DERIVADAS, CONTRATO_SITUACOES, optLabel } from "@/lib/constants";
 import { contratoView } from "@/lib/domain";
 import { formatDate } from "@/lib/utils";
 import { getCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function ContratosPage() {
+export default async function ContratosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cliente?: string; s?: string }>;
+}) {
+  const { cliente, s } = await searchParams;
   const [session, cs, ms, cms, bs, mods] = await Promise.all([
     getCurrentSession(),
     db.select().from(contratos),
@@ -23,6 +28,16 @@ export default async function ContratosPage() {
   const canManage = session?.permissions.manage === true;
 
   const munById = new Map(ms.map((m) => [m.id, m]));
+  const clientesComContrato = new Set(cs.map((c) => c.municipioId));
+  const clientesFiltro = ms
+    .filter((m) => clientesComContrato.has(m.id))
+    .sort((a, b) => a.clienteNome.localeCompare(b.clienteNome, "pt-BR"));
+  const situacoesFiltro = [
+    ...CONTRATO_SITUACOES.map(({ value, label }) => ({ value, label })),
+    ...Object.entries(CONTRATO_DERIVADAS).map(([value, option]) => ({ value, label: option.label })),
+  ];
+  const clienteSelecionado = cliente && clientesComContrato.has(cliente) ? cliente : "";
+  const situacaoSelecionada = s && situacoesFiltro.some((option) => option.value === s) ? s : "";
   const views = cs.map((c) => ({ c, view: contratoView(c) }));
   const ativos = cs.filter((c) => c.situacao === "vigente").length;
   const vencendo = views.filter((v) => v.view.value === "proximo_vencimento").length;
@@ -31,7 +46,12 @@ export default async function ContratosPage() {
     ["recebido_sem_assinatura", "aguardando_assinatura"].includes(c.situacao),
   ).length;
 
-  const ordenados = views.sort((a, b) => (a.view.daysLeft ?? 99999) - (b.view.daysLeft ?? 99999));
+  const ordenados = views
+    .filter(({ c, view }) =>
+      (!clienteSelecionado || c.municipioId === clienteSelecionado) &&
+      (!situacaoSelecionada || view.value === situacaoSelecionada),
+    )
+    .sort((a, b) => (a.view.daysLeft ?? 99999) - (b.view.daysLeft ?? 99999));
 
   return (
     <div className="flex flex-col gap-5">
@@ -59,10 +79,36 @@ export default async function ContratosPage() {
             />
           ) : null}
         />
+        <form method="get" action="/contratos" className="flex flex-wrap items-end gap-3 border-b border-app-border px-4 py-3 sm:px-5">
+          <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs font-semibold text-app-muted-foreground sm:max-w-xs">
+            Cliente
+            <select name="cliente" defaultValue={clienteSelecionado} className={selectCls}>
+              <option value="">Todos os clientes</option>
+              {clientesFiltro.map((m) => (
+                <option key={m.id} value={m.id}>{m.clienteNome}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs font-semibold text-app-muted-foreground sm:max-w-xs">
+            Situação
+            <select name="s" defaultValue={situacaoSelecionada} className={selectCls}>
+              <option value="">Todas as situações</option>
+              {situacoesFiltro.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className={btnPrimary}>Filtrar</button>
+          <Link href="/contratos" className={btnSecondary}>Limpar</Link>
+        </form>
         <div className="overflow-x-auto">
           {ordenados.length === 0 ? (
             <div className="p-5">
-              <Empty title="Nenhum contrato cadastrado" />
+              {cs.length === 0 ? (
+                <Empty title="Nenhum contrato cadastrado" />
+              ) : (
+                <Empty title="Nenhum contrato encontrado" description="Nenhum contrato corresponde aos filtros selecionados." />
+              )}
             </div>
           ) : (
             <table className="w-full min-w-[820px] text-left">

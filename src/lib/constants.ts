@@ -194,6 +194,7 @@ export const EVENTO_TIPOS: Record<string, string> = {
   proposta_situacao: "Situação da proposta",
   contrato_criado: "Contrato criado",
   contrato_situacao: "Situação do contrato",
+  contrato_assinatura: "Assinatura do contrato",
   modulo_vinculado: "Módulo vinculado ao contrato",
   modulo_desvinculado: "Módulo desvinculado do contrato",
   aditivo_criado: "Aditivo registrado",

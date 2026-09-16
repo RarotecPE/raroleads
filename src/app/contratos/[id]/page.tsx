@@ -14,6 +14,7 @@ import {
   municipios,
 } from "@/db/schema";
 import { AditivoForm } from "@/components/aditivo-form";
+import { ContratoAssinaturaForm } from "@/components/contrato-assinatura-form";
 import { DocumentoForm } from "@/components/registry-forms";
 import { SubmitButton } from "@/components/dialog";
 import { Badge, Empty, Panel, PanelHeader, Stat, btnXs, btnXsGhost, selectCls } from "@/components/ui";
@@ -87,18 +88,21 @@ export default async function ContratoDetailPage({
             {c.observacoes ? <p className="mt-2 max-w-2xl text-sm text-app-muted-foreground">{c.observacoes}</p> : null}
           </div>
           {!canManage || clienteEncerrado ? null : (
-          <form action={setContratoSituacao} className="flex items-center gap-2">
-            <input type="hidden" name="id" value={c.id} />
-            <label className="sr-only" htmlFor="situacao">Situação do contrato</label>
-            <select id="situacao" name="situacao" defaultValue={c.situacao} className={selectCls}>
-              {CONTRATO_SITUACOES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-            <SubmitButton className={btnXs.replace("h-8", "h-10")}>
-              <Save className="h-4 w-4" /> Atualizar situação
-            </SubmitButton>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <ContratoAssinaturaForm contratoId={c.id} dataAssinatura={c.dataAssinatura} />
+            <form action={setContratoSituacao} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="id" value={c.id} />
+              <label className="sr-only" htmlFor="situacao">Situação do contrato</label>
+              <select id="situacao" name="situacao" defaultValue={c.situacao} className={selectCls}>
+                {CONTRATO_SITUACOES.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+              <SubmitButton className={btnXs.replace("h-8", "h-10")}>
+                <Save className="h-4 w-4" /> Atualizar situação
+              </SubmitButton>
+            </form>
+          </div>
           )}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

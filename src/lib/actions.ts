@@ -777,6 +777,34 @@ export async function setContratoSituacao(fd: FormData) {
   done();
 }
 
+export async function setContratoDataAssinatura(fd: FormData) {
+  await requireServerActionPermission();
+  const id = req(fd, "id");
+  const dataAssinatura = req(fd, "dataAssinatura");
+  const data = /^\d{4}-\d{2}-\d{2}$/.test(dataAssinatura)
+    ? new Date(`${dataAssinatura}T00:00:00Z`)
+    : null;
+  if (!data || Number.isNaN(data.getTime()) || data.toISOString().slice(0, 10) !== dataAssinatura) {
+    throw new Error("Informe uma data de assinatura válida.");
+  }
+
+  const contrato = await assertContratoOperacional(id);
+  if (contrato.dataAssinatura === dataAssinatura) return;
+
+  await db.update(contratos).set({ dataAssinatura }).where(eq(contratos.id, id));
+  const descricao = contrato.dataAssinatura
+    ? `Data de assinatura do contrato ${contrato.numero} corrigida de ${contrato.dataAssinatura} para ${dataAssinatura}.`
+    : `Assinatura do contrato ${contrato.numero} recebida em ${dataAssinatura}.`;
+  await logEvent({
+    tipo: "contrato_assinatura",
+    descricao,
+    municipioId: contrato.municipioId,
+    contratoId: id,
+  });
+  await syncPendencias();
+  done();
+}
+
 export async function vincularModulo(fd: FormData) {
   await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
