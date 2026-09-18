@@ -83,6 +83,11 @@ export default async function ClienteDetailPage({
   const eventosOperacionais = evts.filter(isOperationalEvent);
   const clienteEncerrado = m.situacao === "cliente_encerrado";
   const baseById = new Map(bs.map((b) => [b.id, b]));
+  const rootBases = bs.filter((base) => !base.baseSuperiorId);
+  const orderedBases = [
+    ...rootBases.flatMap((parent) => [parent, ...bs.filter((child) => child.baseSuperiorId === parent.id)]),
+    ...bs.filter((base) => base.baseSuperiorId && !baseById.has(base.baseSuperiorId)),
+  ];
   const modById = new Map(mods.map((mo) => [mo.id, mo]));
   const contratoById = new Map(cs.map((c) => [c.id, c]));
   const propostaById = new Map(props.map((p) => [p.id, p]));
@@ -199,14 +204,16 @@ export default async function ClienteDetailPage({
           {bs.length === 0 ? (
             <Empty title="Nenhuma base cadastrada" description="Crie a primeira unidade operacional deste cliente." />
           ) : (
-            bs.map((b) => {
+            orderedBases.map((b) => {
               const bMods = mods.filter((mo) => mo.baseId === b.id);
+              const childBases = bs.filter((child) => child.baseSuperiorId === b.id);
               return (
                 <section key={b.id} className="rounded-app-lg border border-app-border bg-app-surface-elevated/30">
                   <header className="flex flex-wrap items-center justify-between gap-2 border-b border-app-border px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-sm font-bold text-app-foreground">{b.nome}</h3>
                       <Badge tone="muted">{b.tipo}</Badge>
+                      {b.baseSuperiorId ? <Badge tone="primary">Base superior: {baseById.get(b.baseSuperiorId)?.nome ?? "não encontrada"}</Badge> : null}
                       {!b.cnpj ? <Badge tone="warning">Sem CNPJ</Badge> : <span className="text-xs text-app-muted-foreground">{formatCnpj(b.cnpj)}</span>}
                     </div>
                     {canManage && !clienteEncerrado ? (
@@ -225,6 +232,7 @@ export default async function ClienteDetailPage({
                         baseId={b.id}
                         municipioId={m.id}
                         modulos={bMods.map((modulo) => ({ nome: modulo.nome }))}
+                        hasChildBases={childBases.length > 0}
                         trigger={
                           <button type="button" className={btnXsGhost}>
                             <Plus className="h-3.5 w-3.5" /> Novo módulo
@@ -235,6 +243,11 @@ export default async function ClienteDetailPage({
                     ) : null}
                   </header>
                   {b.observacoes ? <p className="whitespace-pre-wrap px-4 py-2 text-sm text-app-muted-foreground">{b.observacoes}</p> : null}
+                  {childBases.length > 0 ? (
+                    <p className="border-b border-app-border px-4 py-2 text-xs text-app-muted-foreground">
+                      Bases inferiores: {childBases.map((child) => child.nome).join(", ")}
+                    </p>
+                  ) : null}
                   <div className="flex flex-col divide-y divide-app-border">
                     {bMods.length === 0 ? (
                       <p className="px-4 py-4 text-xs text-app-muted-foreground">Nenhum módulo nesta base.</p>

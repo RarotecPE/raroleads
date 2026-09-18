@@ -94,6 +94,8 @@ const expectedAditivoColumns = [
   "created_at",
 ];
 
+const expectedBaseColumns = ["base_superior_id"];
+
 const expectedEventoColumns = [
   "id",
   "municipio_id",
@@ -169,6 +171,10 @@ try {
     "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
     ["aditivos"],
   );
+  const baseColumns = await pool.query(
+    "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+    ["bases"],
+  );
   const eventoColumns = await pool.query(
     "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
     ["eventos"],
@@ -176,12 +182,14 @@ try {
 
   const tableNames = tables.rows.map((row) => row.table_name);
   const columnNames = columns.rows.map((row) => row.column_name);
+  const baseColumnNames = baseColumns.rows.map((row) => row.column_name);
   const clienteColumnNames = clienteColumns.rows.map((row) => row.column_name);
   const moduloResponsavelColumnNames = moduloResponsavelColumns.rows.map((row) => row.column_name);
   const documentoColumnNames = documentoColumns.rows.map((row) => row.column_name);
   const aditivoColumnNames = aditivoColumns.rows.map((row) => row.column_name);
   const eventoColumnNames = eventoColumns.rows.map((row) => row.column_name);
   const missingTables = expectedTables.filter((table) => !tableNames.includes(table));
+  const missingBaseColumns = expectedBaseColumns.filter((column) => !baseColumnNames.includes(column));
   const missingBaseModuleColumns = expectedBaseModuleColumns.filter((column) => !columnNames.includes(column));
   const missingClienteColumns = expectedClienteColumns.filter((column) => !clienteColumnNames.includes(column));
   const missingModuloResponsavelColumns = expectedModuloResponsavelColumns.filter(
@@ -194,6 +202,7 @@ try {
   const missingEventoColumns = expectedEventoColumns.filter((column) => !eventoColumnNames.includes(column));
   const ok =
     missingTables.length === 0 &&
+    missingBaseColumns.length === 0 &&
     missingBaseModuleColumns.length === 0 &&
     missingClienteColumns.length === 0 &&
     missingModuloResponsavelColumns.length === 0 &&
@@ -209,6 +218,8 @@ try {
         context: context.rows[0],
         foundTables: tableNames,
         missingTables,
+        baseColumns: baseColumnNames,
+        missingBaseColumns,
         baseModulesColumns: columnNames,
         missingBaseModuleColumns,
         clienteColumns: clienteColumnNames,

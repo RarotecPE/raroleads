@@ -21,6 +21,7 @@ import {
   createProposta,
   createResponsavelModulo,
   deleteResponsavelModulo,
+  desvincularBaseSuperior,
   setPropostaSituacao,
   updateBase,
   updateResponsavelModulo,
@@ -41,6 +42,7 @@ interface BaseFormBase {
   tipo: string;
   cnpj: string | null;
   observacoes: string | null;
+  baseSuperiorId: string | null;
 }
 
 export function BaseForm({
@@ -60,13 +62,21 @@ export function BaseForm({
       trigger={trigger}
       title={isEdit ? "Editar base" : "Nova base"}
       description="Base é a unidade operacional do cliente (Prefeitura, Saúde, Câmara…)."
+      maxWidth="max-w-3xl"
     >
       <BaseFormFields
         action={isEdit ? updateBase : createBase}
         municipioId={municipioId}
-        existingBases={bases.map((item) => ({ id: item.id, tipo: item.tipo }))}
+        existingBases={bases.map((item) => ({ id: item.id, nome: item.nome, tipo: item.tipo, baseSuperiorId: item.baseSuperiorId }))}
         base={base}
       />
+      {base?.baseSuperiorId ? (
+        <DialogForm action={desvincularBaseSuperior} className="mt-5 border-t border-app-border pt-4">
+          <input type="hidden" name="id" value={base.id} />
+          <p className="text-xs text-app-muted-foreground">Desvincule esta base antes de associá-la a outra superior.</p>
+          <div className="flex justify-end"><SubmitButton className={btnXs}>Desvincular da base superior</SubmitButton></div>
+        </DialogForm>
+      ) : null}
     </Dialog>
   );
 }
@@ -76,11 +86,13 @@ export function ModuloForm({
   baseId,
   municipioId,
   modulos = [],
+  hasChildBases = false,
 }: {
   trigger: ReactNode;
   baseId: string;
   municipioId: string;
   modulos?: { nome: string }[];
+  hasChildBases?: boolean;
 }) {
   const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     const formData = new FormData(event.currentTarget);
@@ -114,6 +126,12 @@ export function ModuloForm({
         <Field label="Observações">
           <textarea name="observacoes" rows={2} className={textareaCls} />
         </Field>
+        {hasChildBases ? (
+          <label className="flex items-center gap-2 rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3 text-sm text-app-foreground">
+            <input type="checkbox" name="replicarInferiores" className="h-4 w-4 accent-app-primary" />
+            Replicar para bases inferiores
+          </label>
+        ) : null}
         <div className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
           <p className="text-sm font-semibold text-app-foreground">Responsável</p>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">

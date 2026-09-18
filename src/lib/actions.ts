@@ -16,6 +16,7 @@ import {
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
 import { cnpjDigits } from "@/lib/cnpj";
+import { basesMissingModule, parseNewChildBases, validateChildBaseLinks } from "@/lib/base-hierarchy";
 import {
   optLabel,
 } from "@/lib/constants";
@@ -77,12 +78,6 @@ async function assertModuloOperacional(baseModuleId: string) {
   }
   await assertBaseOperacional(modulo.baseId);
   return modulo;
-}
-
-async function hasModuloNaBase(baseId: string, nome: string) {
-  const modulos = await db.select().from(baseModules).where(eq(baseModules.baseId, baseId));
-  const normalizedNome = norm(nome);
-  return modulos.some((modulo) => norm(modulo.nome) === normalizedNome);
 }
 
 async function assertContratoOperacional(contratoId: string) {
@@ -229,75 +224,138 @@ export async function updateMunicipio(fd: FormData) {
 /* ---------------- Bases ---------------- */
 
 export async function createBase(fd: FormData) {
-  await requireServerActionPermission();
+  const session = await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   await assertClienteOperacional(municipioId);
   const nome = req(fd, "nome");
-  const [row] = await db
-    .insert(bases)
-    .values({
+  const newChildren = parseNewChildBases(str(fd, "inferioresNovas"));
+  const existingChildIds = fd.getAll("inferioresExistentesIds").filter((item): item is string => typeof item === "string" && item.trim() !== "");
+  const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
+  await db.transaction(async (tx) => {
+    const allBases = await tx.select().from(bases).where(eq(bases.municipioId, municipioId)).orderBy(bases.id).for("update");
+    validateChildBaseLinks(null, municipioId, existingChildIds, newChildren, allBases);
+    const [row] = await tx.insert(bases).values({
       municipioId,
       nome,
       tipo: str(fd, "tipo") ?? "outros",
       cnpj: cnpjValue(fd, "cnpj"),
       observacoes: str(fd, "observacoes"),
-    })
-    .returning();
-
-  await logEvent({ tipo: "base_criada", descricao: `Base ${nome} criada.`, municipioId, baseId: row.id });
+    }).returning();
+    await tx.insert(eventos).values({ tipo: "base_criada", descricao: `Base ${nome} criada.`, municipioId, baseId: row.id, data: today(), usuario });
+    if (newChildren.length > 0) {
+      const created = await tx.insert(bases).values(newChildren.map((child) => ({ ...child, municipioId, baseSuperiorId: row.id }))).returning();
+      await tx.insert(eventos).values(created.map((child) => ({
+        tipo: "base_criada", descricao: `Base ${child.nome} criada com ${nome} como base superior.`, municipioId, baseId: child.id, data: today(), usuario,
+      })));
+    }
+    if (existingChildIds.length > 0) {
+      await tx.update(bases).set({ baseSuperiorId: row.id }).where(inArray(bases.id, existingChildIds));
+      await tx.insert(eventos).values(existingChildIds.map((id) => ({
+        tipo: "base_vinculada_superior", descricao: `Base ${allBases.find((item) => item.id === id)?.nome} vinculada à base superior ${nome}.`, municipioId, baseId: id, data: today(), usuario,
+      })));
+    }
+  });
   await syncPendencias();
   done();
 }
 
 export async function updateBase(fd: FormData) {
-  await requireServerActionPermission();
+  const session = await requireServerActionPermission();
   const id = req(fd, "id");
   const base = await assertBaseOperacional(id);
   const municipioId = base.municipioId;
   const nome = req(fd, "nome");
-  await db
-    .update(bases)
-    .set({
+  const newChildren = parseNewChildBases(str(fd, "inferioresNovas"));
+  const existingChildIds = fd.getAll("inferioresExistentesIds").filter((item): item is string => typeof item === "string" && item.trim() !== "");
+  const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
+  await db.transaction(async (tx) => {
+    const allBases = await tx.select().from(bases).where(eq(bases.municipioId, municipioId)).orderBy(bases.id).for("update");
+    const current = allBases.find((item) => item.id === id);
+    if (!current) throw new Error("Base não encontrada.");
+    validateChildBaseLinks(current, municipioId, existingChildIds, newChildren, allBases);
+    await tx.update(bases).set({
       nome,
       tipo: str(fd, "tipo") ?? "outros",
       cnpj: cnpjValue(fd, "cnpj"),
       observacoes: str(fd, "observacoes"),
-    })
-    .where(eq(bases.id, id));
-
-  await logEvent({ tipo: "base_atualizada", descricao: `Base ${nome} atualizada.`, municipioId, baseId: id });
+    }).where(eq(bases.id, id));
+    await tx.insert(eventos).values({ tipo: "base_atualizada", descricao: `Base ${nome} atualizada.`, municipioId, baseId: id, data: today(), usuario });
+    if (newChildren.length > 0) {
+      const created = await tx.insert(bases).values(newChildren.map((child) => ({ ...child, municipioId, baseSuperiorId: id }))).returning();
+      await tx.insert(eventos).values(created.map((child) => ({
+        tipo: "base_criada", descricao: `Base ${child.nome} criada com ${nome} como base superior.`, municipioId, baseId: child.id, data: today(), usuario,
+      })));
+    }
+    if (existingChildIds.length > 0) {
+      await tx.update(bases).set({ baseSuperiorId: id }).where(inArray(bases.id, existingChildIds));
+      await tx.insert(eventos).values(existingChildIds.map((childId) => ({
+        tipo: "base_vinculada_superior", descricao: `Base ${allBases.find((item) => item.id === childId)?.nome} vinculada à base superior ${nome}.`, municipioId, baseId: childId, data: today(), usuario,
+      })));
+    }
+  });
   await syncPendencias();
+  done();
+}
+
+export async function desvincularBaseSuperior(fd: FormData) {
+  const session = await requireServerActionPermission();
+  const id = req(fd, "id");
+  const base = await assertBaseOperacional(id);
+  const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
+  await db.transaction(async (tx) => {
+    const allBases = await tx.select().from(bases).where(eq(bases.municipioId, base.municipioId)).orderBy(bases.id).for("update");
+    const current = allBases.find((item) => item.id === id);
+    if (!current?.baseSuperiorId) throw new Error("Esta base não possui base superior.");
+    const superior = allBases.find((item) => item.id === current.baseSuperiorId);
+    await tx.update(bases).set({ baseSuperiorId: null }).where(eq(bases.id, id));
+    await tx.insert(eventos).values({
+      tipo: "base_desvinculada_superior", descricao: `Base ${current.nome} desvinculada da base superior ${superior?.nome ?? "anterior"}.`,
+      municipioId: base.municipioId, baseId: id, data: today(), usuario,
+    });
+  });
   done();
 }
 
 /* ---------------- Módulos ---------------- */
 
 export async function createModulo(fd: FormData) {
-  await requireServerActionPermission();
+  const session = await requireServerActionPermission();
   const baseId = req(fd, "baseId");
-  await assertBaseOperacional(baseId);
-  const municipioId = str(fd, "municipioId");
+  const base = await assertBaseOperacional(baseId);
+  const municipioId = base.municipioId;
+  if (str(fd, "municipioId") !== municipioId) throw new Error("A base deve pertencer ao cliente selecionado.");
   const nome = req(fd, "nome");
+  const observacoes = str(fd, "observacoes");
+  const replicar = fd.get("replicarInferiores") === "on";
   const responsavelNome = str(fd, "responsavelNome");
   const responsavelEmail = str(fd, "responsavelEmail");
   const responsavelCelular = phoneDigits(fd, "responsavelCelular");
   const deveCriarResponsavel = !!responsavelNome || !!responsavelEmail || !!responsavelCelular;
 
-  if (await hasModuloNaBase(baseId, nome)) {
-    throw new Error(MODULO_DUPLICADO_MESSAGE);
-  }
-
   if (deveCriarResponsavel && !responsavelNome) {
     throw new Error("Informe o nome do responsavel pelo modulo, ou deixe todos os campos de responsavel vazios.");
   }
 
-  const row = await db.transaction(async (tx) => {
+  const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
+  await db.transaction(async (tx) => {
+    const allBases = await tx.select().from(bases).where(eq(bases.municipioId, municipioId)).orderBy(bases.id).for("update");
+    const current = allBases.find((item) => item.id === baseId);
+    if (!current) throw new Error("Base não encontrada.");
+    const children = allBases.filter((item) => item.baseSuperiorId === baseId);
+    if (replicar && (current.baseSuperiorId || children.length === 0)) {
+      throw new Error("A replicação exige uma base superior com bases inferiores.");
+    }
+    const targetIds = [baseId, ...(replicar ? children.map((child) => child.id) : [])];
+    const existing = await tx.select({ baseId: baseModules.baseId, nome: baseModules.nome }).from(baseModules).where(inArray(baseModules.baseId, targetIds));
+    if (existing.some((module) => module.baseId === baseId && norm(module.nome.trim()) === norm(nome.trim()))) {
+      throw new Error(MODULO_DUPLICADO_MESSAGE);
+    }
     const [modulo] = await tx
       .insert(baseModules)
-      .values({ baseId, nome, observacoes: str(fd, "observacoes") })
+      .values({ baseId, nome, observacoes })
       .returning();
 
-    if (deveCriarResponsavel && responsavelNome && municipioId) {
+    if (deveCriarResponsavel && responsavelNome) {
       await tx.insert(moduloResponsaveis).values({
         municipioId,
         baseModuleId: modulo.id,
@@ -306,10 +364,20 @@ export async function createModulo(fd: FormData) {
         celular: responsavelCelular,
       });
     }
-
-    return modulo;
+    await tx.insert(eventos).values({
+      tipo: "modulo_criado", descricao: `Módulo ${nome} criado na base.`, municipioId, baseId, baseModuleId: modulo.id, data: today(), usuario,
+    });
+    if (replicar) {
+      const missing = basesMissingModule(children, existing, nome);
+      if (missing.length > 0) {
+        const copies = await tx.insert(baseModules).values(missing.map((child) => ({ baseId: child.id, nome, observacoes }))).returning();
+        await tx.insert(eventos).values(copies.map((copy) => ({
+          tipo: "modulo_replicado", descricao: `Módulo ${nome} replicado da base ${base.nome}.`,
+          municipioId, baseId: copy.baseId, baseModuleId: copy.id, data: today(), usuario,
+        })));
+      }
+    }
   });
-  await logEvent({ tipo: "modulo_criado", descricao: `Módulo ${nome} criado na base.`, municipioId, baseId, baseModuleId: row.id });
   await syncPendencias();
   done();
 }

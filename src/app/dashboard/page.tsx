@@ -66,6 +66,7 @@ function dashboardDatabaseError(health: Exclude<DatabaseHealth, { ok: true }>, s
             <div>
               <p className="font-semibold text-app-foreground">Pendencias</p>
               <p>Tabelas: {health.missingTables.length ? health.missingTables.join(", ") : "ok"}</p>
+              <p>Colunas bases: {health.missingBaseColumns.length ? health.missingBaseColumns.join(", ") : "ok"}</p>
               <p>Colunas base_modules: {health.missingBaseModuleColumns.length ? health.missingBaseModuleColumns.join(", ") : "ok"}</p>
               <p>Colunas clientes: {health.missingClienteColumns.length ? health.missingClienteColumns.join(", ") : "ok"}</p>
               <p>Colunas modulo_responsaveis: {health.missingModuloResponsavelColumns.length ? health.missingModuloResponsavelColumns.join(", ") : "ok"}</p>

@@ -90,6 +90,8 @@ const EXPECTED_ADITIVO_COLUMNS = [
   "created_at",
 ] as const;
 
+const EXPECTED_BASE_COLUMNS = ["base_superior_id"] as const;
+
 const EXPECTED_EVENTO_COLUMNS = [
   "id",
   "municipio_id",
@@ -123,6 +125,7 @@ export type DatabaseHealth =
         user: string;
       };
       missingTables: string[];
+      missingBaseColumns: string[];
       missingBaseModuleColumns: string[];
       missingClienteColumns: string[];
       missingModuloResponsavelColumns: string[];
@@ -178,6 +181,10 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
       "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
       ["aditivos"],
     );
+    const baseColumns = await pool.query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+      ["bases"],
+    );
     const eventoColumns = await pool.query<{ column_name: string }>(
       "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
       ["eventos"],
@@ -185,12 +192,14 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
 
     const tableNames = tables.rows.map((row) => row.table_name);
     const columnNames = columns.rows.map((row) => row.column_name);
+    const baseColumnNames = baseColumns.rows.map((row) => row.column_name);
     const clienteColumnNames = clienteColumns.rows.map((row) => row.column_name);
     const moduloResponsavelColumnNames = moduloResponsavelColumns.rows.map((row) => row.column_name);
     const documentoColumnNames = documentoColumns.rows.map((row) => row.column_name);
     const aditivoColumnNames = aditivoColumns.rows.map((row) => row.column_name);
     const eventoColumnNames = eventoColumns.rows.map((row) => row.column_name);
     const missingTables = EXPECTED_TABLES.filter((table) => !tableNames.includes(table));
+    const missingBaseColumns = EXPECTED_BASE_COLUMNS.filter((column) => !baseColumnNames.includes(column));
     const missingBaseModuleColumns = EXPECTED_BASE_MODULE_COLUMNS.filter((column) => !columnNames.includes(column));
     const missingClienteColumns = EXPECTED_CLIENTE_COLUMNS.filter((column) => !clienteColumnNames.includes(column));
     const missingModuloResponsavelColumns = EXPECTED_MODULO_RESPONSAVEL_COLUMNS.filter(
@@ -204,6 +213,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
 
     if (
       missingTables.length > 0 ||
+      missingBaseColumns.length > 0 ||
       missingBaseModuleColumns.length > 0 ||
       missingClienteColumns.length > 0 ||
       missingModuloResponsavelColumns.length > 0 ||
@@ -216,6 +226,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
         status: "schema_mismatch",
         context: context.rows[0],
         missingTables,
+        missingBaseColumns,
         missingBaseModuleColumns,
         missingClienteColumns,
         missingModuloResponsavelColumns,

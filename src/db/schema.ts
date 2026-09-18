@@ -1,5 +1,6 @@
 import {
   boolean,
+  type AnyPgColumn,
   date,
   integer,
   pgTable,
@@ -33,6 +34,7 @@ export const bases = pgTable("bases", {
   municipioId: text("municipio_id")
     .notNull()
     .references(() => municipios.id),
+  baseSuperiorId: text("base_superior_id").references((): AnyPgColumn => bases.id, { onDelete: "set null" }),
   nome: text("nome").notNull(),
   tipo: text("tipo").notNull().default("outros"),
   cnpj: text("cnpj"),

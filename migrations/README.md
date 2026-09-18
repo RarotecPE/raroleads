@@ -9,6 +9,8 @@ Esta pasta guarda o historico das alteracoes feitas no banco de dados da aplicac
 - A primeira migration, `001_initial_schema.sql`, foi iniciada a partir do arquivo `raroleads.sql` anexado.
 - Nao altere migrations antigas depois que elas forem compartilhadas ou aplicadas; crie uma nova migration corrigindo ou evoluindo o schema.
 
+`015_add_base_superior.sql` adiciona a hierarquia opcional de bases. Ela integra `npm run db:schema` e deixa as bases existentes sem superior.
+
 ## Limpeza dos dados de homologacao
 
 O arquivo `014_cleanup_homologacao.sql` e um script manual, destrutivo e destinado
