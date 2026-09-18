@@ -182,13 +182,13 @@ export default async function DashboardPage() {
         <Panel>
           <PanelHeader
             title="Oportunidades comerciais"
-            description="Modulos do catalogo que o cliente ainda nao possui"
+            description={`${oportunidades.length} cliente(s) com módulos do catálogo ainda não cadastrados`}
           />
-          <div className="flex flex-col gap-2 p-3 sm:p-4">
+          <div className="flex max-h-[32rem] flex-col gap-2 overflow-y-auto p-3 sm:p-4">
             {oportunidades.length === 0 ? (
               <Empty title="Sem oportunidades identificadas" description="Cadastre módulos nas bases dos clientes." />
             ) : (
-              oportunidades.slice(0, 5).map((o) => (
+              oportunidades.map((o) => (
                 <Link
                   key={o.municipio.id}
                   href={`/clientes/${o.municipio.id}`}

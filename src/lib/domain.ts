@@ -14,10 +14,11 @@ import {
 } from "@/db/schema";
 import { getCurrentSession } from "@/lib/auth";
 import type { Tone } from "@/lib/constants";
-import { MODULE_CATALOG } from "@/lib/constants";
 import { needsModuleEnabledEmailPending } from "@/lib/module-enabled-email";
 import { contractedModuleIds, isContractDocumentType } from "@/lib/contract-reference";
-import { norm, todayISO } from "@/lib/utils";
+import { todayISO } from "@/lib/utils";
+export { computeOportunidades } from "@/lib/opportunities";
+export type { Oportunidade } from "@/lib/opportunities";
 
 export type Municipio = typeof municipios.$inferSelect;
 export type Base = typeof bases.$inferSelect;
@@ -232,34 +233,4 @@ export async function syncPendencias() {
       })),
     );
   }
-}
-
-/* ------------------------------------------------------------------ */
-/* FASE 6 — Inteligência comercial (oportunidades)                    */
-/* ------------------------------------------------------------------ */
-
-export interface Oportunidade {
-  municipio: Municipio;
-  missing: string[];
-}
-
-export function computeOportunidades(
-  ms: Municipio[],
-  bs: Base[],
-  mods: BaseModule[],
-): Oportunidade[] {
-  const baseById = new Map(bs.map((b) => [b.id, b]));
-  const out: Oportunidade[] = [];
-  for (const m of ms) {
-    if (!["cliente_ativo", "em_negociacao"].includes(m.situacao)) continue;
-    const owned = new Set(
-      mods
-        .filter((mod) => baseById.get(mod.baseId)?.municipioId === m.id)
-        .map((mod) => norm(mod.nome)),
-    );
-    if (owned.size === 0) continue;
-    const missing = MODULE_CATALOG.filter((c) => !owned.has(norm(c)));
-    if (missing.length > 0) out.push({ municipio: m, missing });
-  }
-  return out.sort((a, b) => a.missing.length - b.missing.length);
 }

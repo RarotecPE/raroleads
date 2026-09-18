@@ -5,7 +5,7 @@ import { baseModules, bases, contratos, municipios, pendencias } from "@/db/sche
 import { ClienteForm } from "@/components/cliente-form";
 import { Badge, Empty, Panel, PanelHeader, btnPrimary } from "@/components/ui";
 import { MUNICIPIO_SITUACOES, optLabel, optTone } from "@/lib/constants";
-import { syncPendencias } from "@/lib/domain";
+import { computeOportunidades, syncPendencias } from "@/lib/domain";
 import { getCurrentSession } from "@/lib/auth";
 import { cn, countBy, norm } from "@/lib/utils";
 
@@ -32,6 +32,7 @@ export default async function ClientesPage({
   const baseById = new Map(bs.map((b) => [b.id, b]));
   const modsPorCliente = countBy(mods, (m) => baseById.get(m.baseId)?.municipioId ?? "");
   const contratosPorCliente = countBy(cs, (c) => c.municipioId);
+  const oportunidadesPorCliente = new Map(computeOportunidades(ms, bs, mods).map((item) => [item.municipio.id, item.missing.length]));
   const pendsAbertas = countBy(
     pends.filter((p) => p.situacao === "aberta"),
     (p) => p.municipioId ?? "",
@@ -101,10 +102,10 @@ export default async function ClientesPage({
               <Empty title="Nenhum cliente encontrado" description="Cadastre o primeiro cliente para comecar." />
             </div>
           ) : (
-            <table className="w-full min-w-[760px] text-left">
+            <table className="w-full min-w-[860px] text-left">
               <thead>
                 <tr className="border-b border-app-border">
-                  {["Cliente", "Situacao", "Bases", "Modulos", "Contratos", "Pendencias"].map((h) => (
+                  {["Cliente", "Situacao", "Bases", "Modulos", "Contratos", "Oportunidades", "Pendencias"].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-app-muted-foreground sm:px-5">
                       {h}
                     </th>
@@ -128,6 +129,13 @@ export default async function ClientesPage({
                     <td className="px-4 py-3 text-sm text-app-muted-foreground tabular-nums sm:px-5">{basePorCliente.get(m.id) ?? 0}</td>
                     <td className="px-4 py-3 text-sm text-app-muted-foreground tabular-nums sm:px-5">{modsPorCliente.get(m.id) ?? 0}</td>
                     <td className="px-4 py-3 text-sm text-app-muted-foreground tabular-nums sm:px-5">{contratosPorCliente.get(m.id) ?? 0}</td>
+                    <td className="px-4 py-3 sm:px-5">
+                      {(oportunidadesPorCliente.get(m.id) ?? 0) > 0 ? (
+                        <Badge tone="primary">{oportunidadesPorCliente.get(m.id)} módulos</Badge>
+                      ) : (
+                        <span className="text-sm text-app-muted-foreground">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 sm:px-5">
                       {(pendsAbertas.get(m.id) ?? 0) > 0 ? (
                         <Badge tone="warning">{pendsAbertas.get(m.id)} abertas</Badge>

@@ -32,17 +32,16 @@ import {
 import { Badge, Empty, Panel, PanelHeader, Stat, YesNo, btnGhost, btnPrimary, btnXsGhost } from "@/components/ui";
 import {
   EVENTO_TIPOS,
-  MODULE_CATALOG,
   PENDENCIA_TIPOS,
   optLabel,
   optTone,
 } from "@/lib/constants";
-import { contratadoSet, moduloState, syncPendencias } from "@/lib/domain";
+import { computeOportunidades, contratadoSet, moduloState, syncPendencias } from "@/lib/domain";
 import { isOperationalEvent, isOperationalPendingType, occupiedBaseIds } from "@/lib/contract-reference";
 import * as modActions from "@/lib/actions";
 import { formatCnpj } from "@/lib/cnpj";
 import { formatPhone } from "@/lib/phone";
-import { formatDate, formatDateTime, norm } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { isDocumentViewable } from "@/lib/document-view";
 import { getCurrentSession } from "@/lib/auth";
 
@@ -112,11 +111,7 @@ export default async function ClienteDetailPage({
     reenviarEmail: modActions.reenviarEmailHabilitacao,
   };
 
-  const owned = new Set(mods.map((mo) => norm(mo.nome)));
-  const oportunidades =
-    ["cliente_ativo", "em_negociacao"].includes(m.situacao) && owned.size > 0
-      ? MODULE_CATALOG.filter((c) => !owned.has(norm(c)))
-      : [];
+  const oportunidades = computeOportunidades([m], bs, mods)[0]?.missing ?? [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -156,15 +151,13 @@ export default async function ClienteDetailPage({
           <Stat label="Contratos" value={cs.length} tone="success" />
           <Stat label="Pendências abertas" value={pendsAbertas.length} tone={pendsAbertas.length ? "warning" : "muted"} />
         </div>
-        {oportunidades.length > 0 ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-app-md border border-app-primary/30 bg-app-primary/5 px-3 py-2.5">
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-app-md border border-app-primary/30 bg-app-primary/5 px-3 py-2.5">
             <Sparkles className="h-4 w-4 text-app-primary" />
-            <span className="text-xs font-semibold text-app-foreground">Oportunidades comerciais:</span>
-            {oportunidades.map((o) => (
+            <span className="text-xs font-semibold text-app-foreground">Oportunidades comerciais ({oportunidades.length}):</span>
+            {oportunidades.length === 0 ? <span className="text-xs text-app-muted-foreground">Nenhum módulo do catálogo pendente.</span> : oportunidades.map((o) => (
               <Badge key={o} tone="primary">{o}</Badge>
             ))}
-          </div>
-        ) : null}
+        </div>
         {clienteEncerrado ? (
           <div className="mt-4 rounded-app-md border border-app-border bg-app-surface-elevated/50 px-3 py-2.5 text-xs font-medium text-app-muted-foreground">
             Cliente encerrado. Cadastros e ações operacionais estão bloqueados para preservar a linha do tempo.
