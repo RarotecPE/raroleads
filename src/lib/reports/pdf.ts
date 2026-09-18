@@ -14,14 +14,15 @@ import {
   propostas,
 } from "@/db/schema";
 import { APP, EVENTO_TIPOS, MODULE_CATALOG, MUNICIPIO_SITUACOES, PENDENCIA_TIPOS, optLabel } from "@/lib/constants";
-import { computeOportunidades, contratadoSet, contratoView, moduloState, syncPendencias } from "@/lib/domain";
+import { computeOportunidades, contratadoSet, moduloState, syncPendencias } from "@/lib/domain";
+import { isOperationalEvent, isOperationalPendingType } from "@/lib/contract-reference";
 import { countBy, formatDate, formatDateTime, norm } from "@/lib/utils";
 
 export const REPORTS = [
   { tipo: "resumo-executivo", title: "Resumo executivo", description: "Totais gerais de clientes, contratos, modulos e pendencias." },
   { tipo: "ficha-clientes", title: "Ficha completa dos clientes", description: "Cadastro, bases, modulos, contratos, responsaveis e pendencias." },
   { tipo: "mapa-implantacao", title: "Mapa de implantacao", description: "Status operacional dos modulos por cliente e base." },
-  { tipo: "contratos-vencimento", title: "Contratos a vencer e vencidos", description: "Contratos vigentes, vencendo e vencidos." },
+  { tipo: "contratos-cobertura", title: "Cobertura dos contratos", description: "Contratos, clientes, bases e módulos contemplados." },
   { tipo: "pendencias-clientes", title: "Pendencias por cliente", description: "Pendencias abertas e resolvidas agrupadas por cliente." },
   { tipo: "modulos-sem-contrato", title: "Modulos habilitados sem contrato", description: "Riscos administrativos por falta de formalizacao." },
   { tipo: "modulos-nao-habilitados", title: "Modulos contratados nao habilitados", description: "Itens contratados pendentes de habilitacao." },
@@ -29,7 +30,7 @@ export const REPORTS = [
   { tipo: "bases-incompletas", title: "Bases incompletas", description: "Bases sem CNPJ ou com dados criticos ausentes." },
   { tipo: "historico-clientes", title: "Historico dos clientes", description: "Linha do tempo de eventos dos clientes." },
   { tipo: "oportunidades-comerciais", title: "Oportunidades comerciais", description: "Modulos do catalogo ainda nao cadastrados por cliente." },
-  { tipo: "documentos-clientes", title: "Documentos por cliente", description: "Documentos vinculados a clientes, contratos, propostas e aditivos." },
+  { tipo: "documentos-clientes", title: "Documentos por cliente", description: "Arquivos de clientes, contratos e propostas, inclusive documentos históricos." },
 ] as const;
 
 export type ReportTipo = (typeof REPORTS)[number]["tipo"];
@@ -43,7 +44,7 @@ type ReportSection = {
 };
 
 export function getReportDefinition(tipo: string) {
-  return REPORTS.find((report) => report.tipo === tipo);
+  return REPORTS.find((report) => report.tipo === (tipo === "contratos-vencimento" ? "contratos-cobertura" : tipo));
 }
 
 export function reportFileName(tipo: ReportTipo) {
@@ -52,7 +53,7 @@ export function reportFileName(tipo: ReportTipo) {
 
 async function getReportData() {
   await syncPendencias();
-  const [ms, bs, mods, cs, cms, pends, responsaveis, docs, props, adts, evts] = await Promise.all([
+  const [ms, bs, mods, cs, cms, allPends, responsaveis, docs, props, adts, allEvts] = await Promise.all([
     db.select().from(municipios),
     db.select().from(bases),
     db.select().from(baseModules),
@@ -66,13 +67,16 @@ async function getReportData() {
     db.select().from(eventos),
   ]);
 
+  const pends = allPends.filter((pendencia) => isOperationalPendingType(pendencia.tipo));
+  const evts = allEvts.filter(isOperationalEvent);
+
   const baseById = new Map(bs.map((b) => [b.id, b]));
   const munById = new Map(ms.map((m) => [m.id, m]));
   const modById = new Map(mods.map((m) => [m.id, m]));
   const contratoById = new Map(cs.map((c) => [c.id, c]));
   const propostaById = new Map(props.map((p) => [p.id, p]));
   const aditivoById = new Map(adts.map((a) => [a.id, a]));
-  const conSet = contratadoSet(cms, cs);
+  const conSet = contratadoSet(cms);
   const oportunidades = computeOportunidades(ms, bs, mods);
 
   return {
@@ -120,7 +124,6 @@ function eventContext(data: ReportData, evento: ReportData["evts"][number]) {
 }
 
 function buildSections(tipo: ReportTipo, data: ReportData): ReportSection[] {
-  const contratoViews = data.cs.map((contrato) => ({ contrato, view: contratoView(contrato) }));
 
   if (tipo === "resumo-executivo") {
     const porSituacao = countBy(data.ms, (cliente) => cliente.situacao);
@@ -135,9 +138,8 @@ function buildSections(tipo: ReportTipo, data: ReportData): ReportSection[] {
           ["Bases", data.bs.length],
           ["Modulos", data.mods.length],
           ["Contratos", data.cs.length],
-          ["Contratos vigentes", data.cs.filter((c) => c.situacao === "vigente").length],
-          ["Contratos vencendo", contratoViews.filter((item) => item.view.value === "proximo_vencimento").length],
-          ["Contratos vencidos", contratoViews.filter((item) => item.view.value === "vencido").length],
+          ["Clientes com contrato", new Set(data.cs.map((c) => c.municipioId)).size],
+          ["Modulos contemplados", data.conSet.size],
           ["Modulos habilitados", habilitados.length],
           ["Modulos habilitados sem execucao", habilitados.filter((m) => !m.execucaoInicio).length],
           ["Pendencias abertas", abertas.length],
@@ -201,20 +203,20 @@ function buildSections(tipo: ReportTipo, data: ReportData): ReportSection[] {
     }];
   }
 
-  if (tipo === "contratos-vencimento") {
+  if (tipo === "contratos-cobertura") {
     return [{
-      title: "Contratos",
-      headers: ["Contrato", "Cliente", "Situacao", "Vigencia final", "Dias"],
+      title: "Cobertura dos contratos",
+      headers: ["Contrato", "Cliente", "Modalidade", "Processo", "Base", "Modulo"],
       empty: "Nenhum contrato cadastrado.",
-      rows: contratoViews
-        .sort((a, b) => (a.view.daysLeft ?? 99999) - (b.view.daysLeft ?? 99999))
-        .map(({ contrato, view }) => [
-          contrato.numero,
-          data.munById.get(contrato.municipioId)?.clienteNome,
-          view.label,
-          formatDate(contrato.dataFim),
-          view.daysLeft ?? "-",
-        ].map(text)),
+      rows: data.cs.flatMap((contrato) => {
+        const links = data.cms.filter((cm) => cm.contratoId === contrato.id);
+        if (links.length === 0) return [[contrato.numero, data.munById.get(contrato.municipioId)?.clienteNome, optLabel(contrato.modalidade), contrato.processo, null, null].map(text)];
+        return links.map((link) => {
+          const modulo = data.modById.get(link.baseModuleId);
+          const base = modulo ? data.baseById.get(modulo.baseId) : undefined;
+          return [contrato.numero, data.munById.get(contrato.municipioId)?.clienteNome, optLabel(contrato.modalidade), contrato.processo, base?.nome, modulo?.nome].map(text);
+        });
+      }),
     }];
   }
 

@@ -6,8 +6,8 @@ export default function RelatoriosLoading() {
       panels={[
         "Relatórios impressos",
         "Clientes por situação",
-        "Clientes sem contrato vigente",
-        "Bases sem formalização",
+        "Clientes sem contrato",
+        "Bases sem cobertura contratual",
         "Módulos",
         "Contratos",
         "Pendências por cliente",

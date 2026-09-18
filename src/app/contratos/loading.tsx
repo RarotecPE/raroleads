@@ -3,7 +3,7 @@ import { DataPageLoading } from "@/components/data-loading";
 export default function ContratosLoading() {
   return (
     <DataPageLoading
-      stats={["Contratos ativos", "Próximos do vencimento", "Vencidos", "Sem assinatura"]}
+      stats={["Contratos", "Clientes com contrato", "Bases contempladas", "Módulos contemplados"]}
       panels={["Contratos"]}
     />
   );

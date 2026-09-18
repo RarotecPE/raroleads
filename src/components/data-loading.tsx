@@ -44,7 +44,7 @@ export function DataPageLoading({
             <DataLoadingIcon label={`Carregando ${detailTitle.toLowerCase()}`} />
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {["Resumo", "Situação", "Vigência", "Vínculos"].map((label) => (
+            {["Resumo", "Informações", "Documentos", "Vínculos"].map((label) => (
               <Stat key={label} label={label} value={<DataLoadingIcon label={`Carregando ${label.toLowerCase()}`} />} />
             ))}
           </div>

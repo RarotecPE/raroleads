@@ -16,7 +16,8 @@ import { getCurrentSession } from "@/lib/auth";
 import type { Tone } from "@/lib/constants";
 import { MODULE_CATALOG } from "@/lib/constants";
 import { needsModuleEnabledEmailPending } from "@/lib/module-enabled-email";
-import { daysUntil, norm, todayISO } from "@/lib/utils";
+import { contractedModuleIds, isContractDocumentType } from "@/lib/contract-reference";
+import { norm, todayISO } from "@/lib/utils";
 
 export type Municipio = typeof municipios.$inferSelect;
 export type Base = typeof bases.$inferSelect;
@@ -72,14 +73,9 @@ async function currentEventUser() {
 /* Derivações de estado                                               */
 /* ------------------------------------------------------------------ */
 
-const CONTRATO_ATIVO = ["recebido_sem_assinatura", "aguardando_assinatura", "vigente"];
-
-/** IDs de módulos cobertos por contrato não encerrado/cancelado. */
-export function contratadoSet(cms: ContratoModulo[], cs: Contrato[]) {
-  const ativos = new Set(cs.filter((c) => CONTRATO_ATIVO.includes(c.situacao)).map((c) => c.id));
-  const set = new Set<string>();
-  for (const cm of cms) if (ativos.has(cm.contratoId)) set.add(cm.baseModuleId);
-  return set;
+/** IDs de módulos vinculados a qualquer contrato cadastrado. */
+export function contratadoSet(cms: ContratoModulo[]) {
+  return contractedModuleIds(cms);
 }
 
 export interface ModuloState {
@@ -96,42 +92,6 @@ export function moduloState(m: BaseModule, contratado: boolean): ModuloState {
   if (m.habilitadoAt) return { key: "habilitado", label: "Habilitado", tone: "primary" };
   if (contratado) return { key: "contratado", label: "Contratado", tone: "primary" };
   return { key: "disponivel", label: "Disponível", tone: "muted" };
-}
-
-export interface ContratoView {
-  value: string;
-  label: string;
-  tone: Tone;
-  daysLeft: number | null;
-}
-
-/** Situação de exibição: vencido / próximo do vencimento derivados da data final. */
-export function contratoView(c: Contrato): ContratoView {
-  const days = daysUntil(c.dataFim);
-  if (c.situacao === "vigente" && days !== null) {
-    if (days < 0) return { value: "vencido", label: "Vencido", tone: "danger", daysLeft: days };
-    if (days <= 60)
-      return { value: "proximo_vencimento", label: `Vence em ${days}d`, tone: "warning", daysLeft: days };
-  }
-  const tone: Tone =
-    c.situacao === "vigente"
-      ? "success"
-      : c.situacao === "cancelado"
-        ? "danger"
-        : c.situacao === "encerrado"
-          ? "muted"
-          : "warning";
-  const label =
-    c.situacao === "recebido_sem_assinatura"
-      ? "Recebido sem assinatura"
-      : c.situacao === "aguardando_assinatura"
-        ? "Aguardando assinatura"
-        : c.situacao === "vigente"
-          ? "Vigente"
-          : c.situacao === "encerrado"
-            ? "Encerrado"
-            : "Cancelado";
-  return { value: c.situacao, label, tone, daysLeft: days };
 }
 
 /* ------------------------------------------------------------------ */
@@ -162,7 +122,7 @@ export async function syncPendencias() {
 
   const baseById = new Map(bs.map((b) => [b.id, b]));
   const munById = new Map(ms.map((m) => [m.id, m]));
-  const conSet = contratadoSet(cms, cs);
+  const conSet = contratadoSet(cms);
   const desired: DesiredPendencia[] = [];
 
   for (const m of mods) {
@@ -213,32 +173,12 @@ export async function syncPendencias() {
   for (const c of cs) {
     const mun = munById.get(c.municipioId);
     const ctx = `Contrato ${c.numero}${mun ? ` · ${mun.clienteNome}` : ""}`;
-    if (c.situacao !== "vigente" || !c.dataFim) continue;
-    const days = daysUntil(c.dataFim);
-    if (days === null) continue;
-    if (days < 0) {
-      desired.push({
-        key: `contrato_vencido:${c.id}`,
-        tipo: "contrato_vencido",
-        descricao: `${ctx} vencido em ${c.dataFim}.`,
-        municipioId: c.municipioId,
-        contratoId: c.id,
-      });
-    } else if (days <= 60) {
-      desired.push({
-        key: `contrato_proximo_vencimento:${c.id}`,
-        tipo: "contrato_proximo_vencimento",
-        descricao: `${ctx} vence em ${days} dia(s).`,
-        municipioId: c.municipioId,
-        contratoId: c.id,
-      });
-    }
-    const temAssinado = docs.some((d) => d.contratoId === c.id && d.tipo === "contrato_assinado");
-    if (!temAssinado) {
+    const temAnexo = docs.some((d) => d.contratoId === c.id && isContractDocumentType(d.tipo));
+    if (!temAnexo) {
       desired.push({
         key: `documento_ausente:${c.id}`,
         tipo: "documento_ausente",
-        descricao: `${ctx} vigente sem documento de contrato assinado.`,
+        descricao: `${ctx} sem anexo de contrato.`,
         municipioId: c.municipioId,
         contratoId: c.id,
       });
@@ -292,35 +232,6 @@ export async function syncPendencias() {
       })),
     );
   }
-}
-
-/* ------------------------------------------------------------------ */
-/* FASE 5 — Alertas de vigência (180/120/90/60/30)                    */
-/* ------------------------------------------------------------------ */
-
-export interface VigenciaAlerta {
-  contrato: Contrato;
-  municipio?: Municipio;
-  daysLeft: number;
-  bucket: 30 | 60 | 90 | 120 | 180;
-}
-
-export function vigenciaAlertas(cs: Contrato[], ms: Municipio[]): VigenciaAlerta[] {
-  const munById = new Map(ms.map((m) => [m.id, m]));
-  const out: VigenciaAlerta[] = [];
-  for (const c of cs) {
-    if (c.situacao !== "vigente") continue;
-    const days = daysUntil(c.dataFim);
-    if (days === null || days < 0 || days > 180) continue;
-    const bucket = (days <= 30 ? 30 : days <= 60 ? 60 : days <= 90 ? 90 : days <= 120 ? 120 : 180) as
-      | 30
-      | 60
-      | 90
-      | 120
-      | 180;
-    out.push({ contrato: c, municipio: munById.get(c.municipioId), daysLeft: days, bucket });
-  }
-  return out.sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
 /* ------------------------------------------------------------------ */

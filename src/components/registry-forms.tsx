@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEventHandler, ReactNode } from "react";
+import { useState, type FormEventHandler, type ReactNode } from "react";
 import { BaseFormFields } from "@/components/base-form-fields";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import { FileInput } from "@/components/file-input";
@@ -313,35 +313,42 @@ export function DocumentoForm({
   contratoId?: string;
   contratos?: { id: string; numero: string }[];
 }) {
+  const [selectedContractId, setSelectedContractId] = useState(contratoId ?? "");
   return (
     <Dialog
       trigger={trigger}
       title="Anexar documento"
-      description="Todo documento deve ter classificação e contexto correto."
+      description="Anexe um arquivo ao cliente ou a um contrato."
     >
       <DialogForm action={createDocumento}>
         <input type="hidden" name="municipioId" value={municipioId} />
         {contratoId ? <input type="hidden" name="contratoId" value={contratoId} /> : null}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Tipo do documento">
-            <select name="tipo" className={selectCls} defaultValue="contrato">
-              {DOCUMENTO_TIPOS.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Nome do arquivo">
-            <input name="nome" className={inputCls} placeholder="contrato_assinado.pdf" />
-          </Field>
+          {selectedContractId ? (
+            <Field label="Tipo do documento"><p className="py-2 text-sm text-app-foreground">Contrato</p></Field>
+          ) : (
+            <Field label="Tipo do documento">
+              <select name="tipo" className={selectCls} defaultValue="Contrato">
+                {DOCUMENTO_TIPOS.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {selectedContractId ? null : (
+            <Field label="Nome do arquivo">
+              <input name="nome" className={inputCls} placeholder="documento.pdf" />
+            </Field>
+          )}
           <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
             <FileInput name="arquivo" required accept={FILE_ACCEPT} />
           </Field>
           <Field label="Referência" hint="Opcional para documentos legados ou observacoes externas." className="sm:col-span-2">
-            <input name="referencia" className={inputCls} placeholder="/arquivos/contrato_assinado.pdf" />
+            <input name="referencia" className={inputCls} placeholder="/arquivos/documento.pdf" />
           </Field>
           {!contratoId && contratos && contratos.length > 0 ? (
             <Field label="Contrato relacionado" className="sm:col-span-2">
-              <select name="contratoId" className={selectCls} defaultValue="">
+              <select name="contratoId" className={selectCls} value={selectedContractId} onChange={(event) => setSelectedContractId(event.target.value)}>
                 <option value="">— Sem vínculo —</option>
                 {contratos.map((c) => (
                   <option key={c.id} value={c.id}>Contrato {c.numero}</option>

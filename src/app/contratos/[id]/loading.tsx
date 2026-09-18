@@ -4,7 +4,7 @@ export default function ContratoDetailLoading() {
   return (
     <DataPageLoading
       detailTitle="Contrato"
-      panels={["Módulos vinculados", "Aditivos", "Documentos", "Histórico do contrato"]}
+      panels={["Bases e módulos contemplados", "Documentos do contrato", "Histórico do vínculo"]}
     />
   );
 }

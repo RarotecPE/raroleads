@@ -37,7 +37,8 @@ import {
   optLabel,
   optTone,
 } from "@/lib/constants";
-import { contratoView, contratadoSet, moduloState, syncPendencias } from "@/lib/domain";
+import { contratadoSet, moduloState, syncPendencias } from "@/lib/domain";
+import { isOperationalEvent, isOperationalPendingType, occupiedBaseIds } from "@/lib/contract-reference";
 import * as modActions from "@/lib/actions";
 import { formatCnpj } from "@/lib/cnpj";
 import { formatPhone } from "@/lib/phone";
@@ -72,15 +73,14 @@ export default async function ClienteDetailPage({
   if (!m) notFound();
 
   const baseIds = bs.map((b) => b.id);
-  const cIds = cs.map((c) => c.id);
-  const [mods, cms] = await Promise.all([
-    baseIds.length ? db.select().from(baseModules).where(inArray(baseModules.baseId, baseIds)) : Promise.resolve([]),
-    cIds.length ? db.select().from(contratoModulos).where(inArray(contratoModulos.contratoId, cIds)) : Promise.resolve([]),
-  ]);
+  const mods = baseIds.length ? await db.select().from(baseModules).where(inArray(baseModules.baseId, baseIds)) : [];
+  const cms = mods.length
+    ? await db.select().from(contratoModulos).where(inArray(contratoModulos.baseModuleId, mods.map((modulo) => modulo.id)))
+    : [];
 
-  const conSet = contratadoSet(cms, cs);
-  const vigentes = cs.filter((c) => c.situacao === "vigente").length;
-  const pendsAbertas = pends.filter((p) => p.situacao === "aberta");
+  const conSet = contratadoSet(cms);
+  const pendsAbertas = pends.filter((p) => p.situacao === "aberta" && isOperationalPendingType(p.tipo));
+  const eventosOperacionais = evts.filter(isOperationalEvent);
   const clienteEncerrado = m.situacao === "cliente_encerrado";
   const baseById = new Map(bs.map((b) => [b.id, b]));
   const modById = new Map(mods.map((mo) => [mo.id, mo]));
@@ -148,7 +148,7 @@ export default async function ClienteDetailPage({
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Bases" value={bs.length} />
           <Stat label="Módulos" value={mods.length} />
-          <Stat label="Contratos vigentes" value={vigentes} tone="success" />
+          <Stat label="Contratos" value={cs.length} tone="success" />
           <Stat label="Pendências abertas" value={pendsAbertas.length} tone={pendsAbertas.length ? "warning" : "muted"} />
         </div>
         {oportunidades.length > 0 ? (
@@ -234,6 +234,7 @@ export default async function ClienteDetailPage({
                     </div>
                     ) : null}
                   </header>
+                  {b.observacoes ? <p className="whitespace-pre-wrap px-4 py-2 text-sm text-app-muted-foreground">{b.observacoes}</p> : null}
                   <div className="flex flex-col divide-y divide-app-border">
                     {bMods.length === 0 ? (
                       <p className="px-4 py-4 text-xs text-app-muted-foreground">Nenhum módulo nesta base.</p>
@@ -278,6 +279,7 @@ export default async function ClienteDetailPage({
                                 <span className="text-app-danger">Desabilitado: {formatDate(mo.desabilitadoAt)} · {optLabel(mo.desabilitadoMotivo)}</span>
                               ) : null}
                             </div>
+                            {mo.observacoes ? <p className="whitespace-pre-wrap text-sm text-app-muted-foreground">{mo.observacoes}</p> : null}
                           </div>
                         );
                       })
@@ -380,9 +382,9 @@ export default async function ClienteDetailPage({
             !canManage || clienteEncerrado ? null : (
               <ContratoForm
                 municipioId={m.id}
-                propostas={props.map((p) => ({ id: p.id, tipo: p.tipo, data: p.data }))}
                 bases={bs.map((b) => ({ id: b.id, municipioId: b.municipioId, nome: b.nome, tipo: b.tipo }))}
                 modulos={mods.map((modulo) => ({ id: modulo.id, baseId: modulo.baseId, nome: modulo.nome }))}
+                occupiedBaseIds={[...occupiedBaseIds(cms, mods)]}
                 trigger={
                   <button type="button" className={btnPrimary}>
                     <Plus className="h-4 w-4" /> Novo contrato
@@ -397,7 +399,6 @@ export default async function ClienteDetailPage({
             <Empty title="Nenhum contrato" description="Cadastre quando houver formalização." />
           ) : (
             cs.map((c) => {
-              const view = contratoView(c);
               const cobertura = cms.filter((cm) => cm.contratoId === c.id).length;
               return (
                 <Link
@@ -412,10 +413,10 @@ export default async function ClienteDetailPage({
                       <span className="ml-2 text-xs font-normal text-app-muted-foreground">{optLabel(c.modalidade)}</span>
                     </p>
                     <p className="text-xs text-app-muted-foreground">
-                      Vigência: {formatDate(c.dataInicio)} → {formatDate(c.dataFim)} · {cobertura} módulo(s) vinculado(s)
+                      {cobertura} módulo(s) contemplado(s){c.processo ? ` · Processo ${c.processo}` : ""}
                     </p>
                   </div>
-                  <Badge tone={view.tone}>{view.label}</Badge>
+                  <Badge tone="primary">{cobertura} módulo(s)</Badge>
                 </Link>
               );
             })
@@ -534,12 +535,10 @@ export default async function ClienteDetailPage({
         <Panel>
           <PanelHeader title="Pendências" description="Resolvidas automaticamente quando a condição é corrigida no sistema" />
           <div className="flex flex-col gap-2 p-3 sm:p-4">
-            {pends.filter((p) => p.situacao === "aberta").length === 0 ? (
+            {pendsAbertas.length === 0 ? (
               <Empty title="Nenhuma pendência aberta" />
             ) : (
-              pends
-                .filter((p) => p.situacao === "aberta")
-                .map((p) => (
+              pendsAbertas.map((p) => (
                   <div key={p.id} className="rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
                     <div className="flex flex-wrap items-start gap-2">
                       <Badge tone={PENDENCIA_TIPOS[p.tipo]?.tone ?? "muted"}>{PENDENCIA_TIPOS[p.tipo]?.label ?? p.tipo}</Badge>
@@ -560,17 +559,17 @@ export default async function ClienteDetailPage({
         <Panel>
           <PanelHeader title="Linha do tempo" description="Toda ação relevante gera um evento" />
           <div className="flex max-h-[28rem] flex-col gap-0 overflow-y-auto p-3 sm:p-4">
-            {evts.length === 0 ? (
+            {eventosOperacionais.length === 0 ? (
               <Empty title="Sem eventos registrados" />
             ) : (
-              evts.map((e, i) => {
+              eventosOperacionais.map((e, i) => {
                 const eventModulo = e.baseModuleId ? modById.get(e.baseModuleId) : null;
                 const eventBase = e.baseId ? baseById.get(e.baseId) : eventModulo ? baseById.get(eventModulo.baseId) : null;
                 const eventContrato = e.contratoId ? contratoById.get(e.contratoId) : null;
 
                 return (
                   <div key={e.id} className="relative flex gap-3 pb-4 last:pb-0">
-                    {i < evts.length - 1 ? (
+                    {i < eventosOperacionais.length - 1 ? (
                       <span className="absolute left-[7px] top-5 h-full w-px bg-app-border" aria-hidden />
                     ) : null}
                     <span className="mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-app-primary bg-app-surface" aria-hidden />

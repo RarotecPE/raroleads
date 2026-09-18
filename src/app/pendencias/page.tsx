@@ -3,6 +3,7 @@ import { Send } from "lucide-react";
 import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { baseModules, bases, contratos, municipios, pendencias } from "@/db/schema";
+import { isOperationalPendingType } from "@/lib/contract-reference";
 import { SubmitButton } from "@/components/dialog";
 import { PendenciasClienteFilter } from "@/components/pendencias-cliente-filter";
 import { Badge, Empty, Panel, PanelHeader, Stat, btnXs } from "@/components/ui";
@@ -32,13 +33,14 @@ export default async function PendenciasPage({
   const { s, cliente } = await searchParams;
   const filtro = s ?? "abertas";
 
-  const [pends, ms, bs, mods, cs] = await Promise.all([
+  const [allPends, ms, bs, mods, cs] = await Promise.all([
     db.select().from(pendencias).orderBy(desc(pendencias.createdAt)),
     db.select().from(municipios),
     db.select().from(bases),
     db.select().from(baseModules),
     db.select().from(contratos),
   ]);
+  const pends = allPends.filter((p) => isOperationalPendingType(p.tipo));
 
   const munById = new Map(ms.map((m) => [m.id, m]));
   const baseById = new Map(bs.map((b) => [b.id, b]));

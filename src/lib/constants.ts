@@ -145,9 +145,6 @@ export const DESABILITACAO_MOTIVOS: Option[] = [
 export const DOCUMENTO_TIPOS: Option[] = [
   { value: "Proposta", label: "Proposta", tone: "primary" },
   { value: "Contrato", label: "Contrato", tone: "primary" },
-  { value: "Contrato sem assinatura", label: "Contrato sem assinatura", tone: "warning" },
-  { value: "Contrato assinado", label: "Contrato assinado", tone: "success" },
-  { value: "Aditivo", label: "Aditivo", tone: "primary" },
   { value: "Solicitação", label: "Solicitação", tone: "muted" },
   { value: "Evidência WhatsApp", label: "Evidência WhatsApp", tone: "muted" },
   { value: "E-mail", label: "E-mail", tone: "muted" },
@@ -155,11 +152,11 @@ export const DOCUMENTO_TIPOS: Option[] = [
   { value: "Outros", label: "Outros", tone: "muted" },
 ];
 
-export const CONTRATO_TIPOS: Option[] = [
-  { value: "Contrato", label: "Contrato", tone: "primary"},
+const DOCUMENTO_TIPOS_LEGADOS: Option[] = [
+  { value: "Aditivo", label: "Aditivo", tone: "primary" },
   { value: "Contrato sem assinatura", label: "Contrato sem assinatura", tone: "warning" },
   { value: "Contrato assinado", label: "Contrato assinado", tone: "success" },
-]
+];
 
 export const PENDENCIA_TIPOS: Record<string, { label: string; tone: Tone }> = {
   email_habilitacao_nao_enviado: { label: "E-mail de habilitação não enviado", tone: "danger" },
@@ -168,7 +165,7 @@ export const PENDENCIA_TIPOS: Record<string, { label: string; tone: Tone }> = {
   contratado_nao_habilitado: { label: "Contratado não habilitado", tone: "warning" },
   contrato_proximo_vencimento: { label: "Contrato próximo do vencimento", tone: "warning" },
   contrato_vencido: { label: "Contrato vencido", tone: "danger" },
-  documento_ausente: { label: "Documento obrigatório ausente", tone: "warning" },
+  documento_ausente: { label: "Anexo de contrato ausente", tone: "warning" },
   base_incompleta: { label: "Base com informações insuficientes", tone: "muted" },
 };
 
@@ -197,6 +194,8 @@ export const EVENTO_TIPOS: Record<string, string> = {
   contrato_assinatura: "Assinatura do contrato",
   modulo_vinculado: "Módulo vinculado ao contrato",
   modulo_desvinculado: "Módulo desvinculado do contrato",
+  base_desvinculada_contrato: "Base desvinculada do contrato",
+  modulo_observacoes: "Observações do módulo",
   aditivo_criado: "Aditivo registrado",
   documento_anexado: "Documento anexado",
   pendencia_resolvida: "Pendência resolvida",
@@ -214,6 +213,7 @@ const ALL = [
   ...IMPLANTACAO_STATUS,
   ...DESABILITACAO_MOTIVOS,
   ...DOCUMENTO_TIPOS,
+  ...DOCUMENTO_TIPOS_LEGADOS,
   ...Object.values(CONTRATO_DERIVADAS),
 ];
 

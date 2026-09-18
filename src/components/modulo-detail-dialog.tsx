@@ -6,9 +6,8 @@ import { HabilitarModuloForm } from "@/components/habilitar-modulo-form";
 import { ImplantacaoStatusForm } from "@/components/implantacao-status-form";
 import { PhoneInput } from "@/components/phone-input";
 import { Badge, Empty, Field, YesNo, btnPrimary, btnXs, btnXsGhost, inputCls, selectCls, textareaCls } from "@/components/ui";
-import { createResponsavelModulo } from "@/lib/actions";
+import { createResponsavelModulo, updateModuloObservacoes } from "@/lib/actions";
 import type { Base, BaseModule, Contrato, ModuloState } from "@/lib/domain";
-import { contratoView } from "@/lib/domain";
 import { DESABILITACAO_MOTIVOS, optLabel } from "@/lib/constants";
 import { formatDate, formatDateTime, todayISO } from "@/lib/utils";
 import { formatPhone } from "@/lib/phone";
@@ -90,6 +89,22 @@ export function ModuloDetailDialog({
             Modo somente leitura. As ações operacionais deste módulo estão bloqueadas.
           </p>
         ) : null}
+
+        <section className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
+          <h3 className="text-sm font-bold text-app-foreground">Observações</h3>
+          {modulo.observacoes ? <p className="mt-2 whitespace-pre-wrap text-sm text-app-foreground">{modulo.observacoes}</p> : (
+            <p className="mt-2 text-sm text-app-muted-foreground">Nenhuma observação cadastrada.</p>
+          )}
+          {!readOnly ? (
+            <form action={updateModuloObservacoes} className="mt-3 flex flex-col gap-2">
+              <input type="hidden" name="id" value={modulo.id} />
+              <Field label="Editar observações">
+                <textarea name="observacoes" rows={3} defaultValue={modulo.observacoes ?? ""} className={textareaCls} />
+              </Field>
+              <div><SubmitButton className={btnXs}>Salvar observações</SubmitButton></div>
+            </form>
+          ) : null}
+        </section>
 
         <section className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
           <h3 className="text-sm font-bold text-app-foreground">Detalhes operacionais</h3>
@@ -276,9 +291,7 @@ export function ModuloDetailDialog({
             {contratos.length === 0 ? (
               <Empty title="Nenhum contrato vinculado" />
             ) : (
-              contratos.map((contrato) => {
-                const view = contratoView(contrato);
-                return (
+              contratos.map((contrato) => (
                   <Link
                     key={contrato.id}
                     href={`/contratos/${contrato.id}`}
@@ -292,14 +305,11 @@ export function ModuloDetailDialog({
                           {optLabel(contrato.modalidade)}
                         </span>
                       </p>
-                      <p className="text-xs text-app-muted-foreground">
-                        Vigencia: {formatDate(contrato.dataInicio)} {"->"} {formatDate(contrato.dataFim)}
-                      </p>
+                      {contrato.processo ? <p className="text-xs text-app-muted-foreground">Processo {contrato.processo}</p> : null}
                     </div>
-                    <Badge tone={view.tone}>{view.label}</Badge>
+                    <Badge tone="primary">Contempla módulo</Badge>
                   </Link>
-                );
-              })
+              ))
             )}
           </div>
         </section>

@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   Ban,
   Building2,
-  CalendarClock,
   FileText,
   Layers,
   LayoutGrid,
@@ -22,17 +21,15 @@ import {
 } from "@/db/schema";
 import { Badge, Empty, Panel, PanelHeader, Stat } from "@/components/ui";
 import { PENDENCIA_TIPOS } from "@/lib/constants";
+import { isOperationalPendingType } from "@/lib/contract-reference";
 import {
   computeOportunidades,
   contratadoSet,
   syncPendencias,
-  vigenciaAlertas,
 } from "@/lib/domain";
-import { formatDate, formatDateTime, groupBy } from "@/lib/utils";
+import { groupBy } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-const BUCKET_TONE = { 30: "danger", 60: "danger", 90: "warning", 120: "warning", 180: "primary" } as const;
 
 function dashboardDatabaseError(health: Exclude<DatabaseHealth, { ok: true }>, syncError?: unknown) {
   const title = health.status === "connection_error" ? "Banco de dados inacessivel" : "Schema do banco incompleto";
@@ -136,18 +133,11 @@ export default async function DashboardPage() {
     db.select().from(pendencias),
   ]);
 
-  const vigentes = cs.filter((c) => c.situacao === "vigente");
-  const alertas = vigenciaAlertas(cs, ms);
-  const vencendo60 = alertas.filter((a) => a.daysLeft <= 60).length;
-  const conSet = contratadoSet(cms, cs);
+  const conSet = contratadoSet(cms);
   const habSemContrato = mods.filter((m) => m.habilitadoAt && !m.desabilitadoAt && !conSet.has(m.id)).length;
   const naoHabilitados = mods.filter((m) => conSet.has(m.id) && !m.habilitadoAt && !m.desabilitadoAt).length;
-  const semAssinatura = cs.filter((c) =>
-    ["recebido_sem_assinatura", "aguardando_assinatura"].includes(c.situacao),
-  ).length;
-  const abertas = pends.filter((p) => p.situacao === "aberta");
+  const abertas = pends.filter((p) => p.situacao === "aberta" && isOperationalPendingType(p.tipo));
   const oportunidades = computeOportunidades(ms, bs, mods);
-  const munById = new Map(ms.map((m) => [m.id, m]));
   const pendsPorTipo = groupBy(abertas, (p) => p.tipo);
 
   return (
@@ -157,41 +147,14 @@ export default async function DashboardPage() {
         <Stat label="Clientes" value={ms.length} icon={<Building2 className="h-4 w-4" />} tone="primary" />
         <Stat label="Bases" value={bs.length} icon={<Layers className="h-4 w-4" />} tone="primary" />
         <Stat label="Módulos" value={mods.length} icon={<Puzzle className="h-4 w-4" />} tone="primary" />
-        <Stat label="Contratos vigentes" value={vigentes.length} icon={<FileText className="h-4 w-4" />} tone="success" />
-        <Stat label="Vencendo em 60d" value={vencendo60} icon={<CalendarClock className="h-4 w-4" />} tone="warning" hint={vencendo60 ? "Revisar renovações" : undefined} />
+        <Stat label="Contratos" value={cs.length} icon={<FileText className="h-4 w-4" />} tone="success" />
+        <Stat label="Clientes com contrato" value={new Set(cs.map((c) => c.municipioId)).size} icon={<FileText className="h-4 w-4" />} tone="primary" />
         <Stat label="Habilitados sem contrato" value={habSemContrato} icon={<Ban className="h-4 w-4" />} tone="danger" />
         <Stat label="Contratados não habilitados" value={naoHabilitados} icon={<LayoutGrid className="h-4 w-4" />} tone="warning" />
         <Stat label="Pendências abertas" value={abertas.length} icon={<AlertTriangle className="h-4 w-4" />} tone="warning" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        {/* Alertas de vigência */}
-        <Panel>
-          <PanelHeader
-            title="Alertas de vigência"
-            description="Contratos vigentes vencendo em até 180 dias"
-            right={<Link href="/contratos" className="text-xs font-semibold text-app-primary hover:underline">Ver contratos</Link>}
-          />
-          <div className="flex flex-col gap-2 p-3 sm:p-4">
-            {alertas.length === 0 ? (
-              <Empty title="Nenhum contrato vencendo" description="Os próximos 180 dias estão livres." />
-            ) : (
-              alertas.slice(0, 8).map((a) => (
-                <div key={a.contrato.id} className="flex items-center justify-between gap-3 rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-app-foreground">
-                      Contrato {a.contrato.numero}
-                      {a.municipio ? <span className="font-normal text-app-muted-foreground"> · {a.municipio.clienteNome}</span> : null}
-                    </p>
-                    <p className="text-xs text-app-muted-foreground">Vence em {formatDate(a.contrato.dataFim)}</p>
-                  </div>
-                  <Badge tone={BUCKET_TONE[a.bucket]}>{a.daysLeft}d</Badge>
-                </div>
-              ))
-            )}
-          </div>
-        </Panel>
-
         {/* Pendências */}
         <Panel>
           <PanelHeader
@@ -214,9 +177,6 @@ export default async function DashboardPage() {
             )}
           </div>
         </Panel>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         {/* Oportunidades comerciais */}
         <Panel>
           <PanelHeader
@@ -247,39 +207,6 @@ export default async function DashboardPage() {
           </div>
         </Panel>
 
-        {/* Contratos sem assinatura */}
-        <Panel>
-          <PanelHeader
-            title="Contratos sem assinatura"
-            description="Recebidos ou aguardando formalização"
-            right={<Link href="/contratos" className="text-xs font-semibold text-app-primary hover:underline">Ver todos</Link>}
-          />
-          <div className="flex flex-col gap-2 p-3 sm:p-4">
-            {semAssinatura === 0 ? (
-              <Empty title="Nenhum contrato sem assinatura" />
-            ) : (
-              cs
-                .filter((c) => ["recebido_sem_assinatura", "aguardando_assinatura"].includes(c.situacao))
-                .slice(0, 8)
-                .map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/contratos/${c.id}`}
-                    className="flex items-center justify-between gap-3 rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5 transition-colors hover:border-app-muted-foreground/40"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-app-foreground">
-                        Contrato {c.numero}
-                        <span className="font-normal text-app-muted-foreground"> · {munById.get(c.municipioId)?.clienteNome}</span>
-                      </p>
-                      <p className="text-xs text-app-muted-foreground">Criado em {formatDateTime(c.createdAt)}</p>
-                    </div>
-                    <Badge tone="warning">{c.situacao === "recebido_sem_assinatura" ? "Sem assinatura" : "Aguardando"}</Badge>
-                  </Link>
-                ))
-            )}
-          </div>
-        </Panel>
       </div>
     </div>
   );

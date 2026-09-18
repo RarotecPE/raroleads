@@ -4,7 +4,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
-  aditivos,
   baseModules,
   bases,
   contratoModulos,
@@ -18,13 +17,10 @@ import {
 import { requireServerActionPermission } from "@/lib/auth";
 import { cnpjDigits } from "@/lib/cnpj";
 import {
-  ADITIVO_TIPO_ALTERACAO_PRAZO,
-  ADITIVO_TIPO_EXCLUSAO_MODULO,
-  ADITIVO_TIPO_INCLUSAO_MODULO,
-  normalizeContratoSituacao,
   optLabel,
 } from "@/lib/constants";
 import { deleteDocumentFile, fileFromFormData, uploadDocumentFile } from "@/lib/document-storage";
+import { CONTRACT_DOCUMENT_TYPE, CONTRACT_UNLINK_REASONS, documentTypeForContext, validateBaseAvailability, validateContractModuleSelection } from "@/lib/contract-reference";
 import { logEvent, syncPendencias } from "@/lib/domain";
 import {
   attemptModuleEnabledEmail,
@@ -489,6 +485,25 @@ export async function habilitarModulo(fd: FormData) {
   done();
 }
 
+export async function updateModuloObservacoes(fd: FormData) {
+  await requireServerActionPermission();
+  const id = req(fd, "id");
+  const modulo = await assertModuloOperacional(id);
+  const base = await assertBaseOperacional(modulo.baseId);
+  const observacoes = str(fd, "observacoes");
+  if (sameText(modulo.observacoes) === observacoes) return;
+
+  await db.update(baseModules).set({ observacoes }).where(eq(baseModules.id, id));
+  await logEvent({
+    tipo: "modulo_observacoes",
+    descricao: `Observações do módulo ${modulo.nome} atualizadas.`,
+    municipioId: base.municipioId,
+    baseId: base.id,
+    baseModuleId: id,
+  });
+  done();
+}
+
 export async function reenviarEmailHabilitacao(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "baseModuleId");
@@ -699,24 +714,25 @@ export async function createContrato(fd: FormData) {
         .map((value) => value.trim()),
     ),
   ];
-  if (baseModuleIds.length > 0) {
-    const modulosSelecionados = await db
-      .select({ id: baseModules.id, baseId: baseModules.baseId })
-      .from(baseModules)
-      .where(inArray(baseModules.id, baseModuleIds));
-    const basesValidas = new Set(basesDoCliente.map((base) => base.id));
-    if (
-      modulosSelecionados.length !== baseModuleIds.length ||
-      modulosSelecionados.some((modulo) => !basesValidas.has(modulo.baseId))
-    ) {
-      throw new Error("Selecione apenas bases e módulos cadastrados para este cliente.");
-    }
-  }
+  if (baseModuleIds.length === 0) validateContractModuleSelection(baseModuleIds, [], []);
+  const modulosSelecionados = await db
+    .select({ id: baseModules.id, baseId: baseModules.baseId })
+    .from(baseModules)
+    .where(inArray(baseModules.id, baseModuleIds));
+  validateContractModuleSelection(baseModuleIds, modulosSelecionados, basesDoCliente.map((base) => base.id));
+  const selectedBaseIds = [...new Set(modulosSelecionados.map((modulo) => modulo.baseId))];
 
   const arquivo = fileFromFormData(fd);
   if (!arquivo) throw new Error("Selecione um arquivo para anexar ao contrato.");
   let uploadedKey: string | null = null;
   const row = await db.transaction(async (tx) => {
+    await tx.select({ id: bases.id }).from(bases).where(inArray(bases.id, selectedBaseIds)).orderBy(bases.id).for("update");
+    const existingLinks = await tx
+      .select({ baseId: baseModules.baseId, contratoId: contratoModulos.contratoId })
+      .from(contratoModulos)
+      .innerJoin(baseModules, eq(baseModules.id, contratoModulos.baseModuleId))
+      .where(inArray(baseModules.baseId, selectedBaseIds));
+    validateBaseAvailability(selectedBaseIds, existingLinks);
     const [contrato] = await tx
       .insert(contratos)
       .values({
@@ -724,11 +740,6 @@ export async function createContrato(fd: FormData) {
         numero: req(fd, "numero"),
         modalidade: str(fd, "modalidade") ?? "outros",
         processo: str(fd, "processo"),
-        propostaId: str(fd, "propostaId"),
-        dataAssinatura: str(fd, "dataAssinatura"),
-        dataInicio: str(fd, "dataInicio"),
-        dataFim: str(fd, "dataFim"),
-        situacao: normalizeContratoSituacao(str(fd, "situacao")),
         observacoes: str(fd, "observacoes"),
       })
       .returning();
@@ -741,8 +752,8 @@ export async function createContrato(fd: FormData) {
         id: documentoId,
         municipioId,
         contratoId: contrato.id,
-        tipo: str(fd, "documentoTipo") ?? "contrato",
-        nome: str(fd, "documentoNome") ?? uploaded.originalName,
+        tipo: CONTRACT_DOCUMENT_TYPE,
+        nome: uploaded.originalName,
         storageKey: uploaded.key,
         mimeType: uploaded.contentType,
         tamanhoBytes: uploaded.size,
@@ -766,214 +777,64 @@ export async function createContrato(fd: FormData) {
   done();
 }
 
-export async function setContratoSituacao(fd: FormData) {
-  await requireServerActionPermission();
-  const id = req(fd, "id");
-  const situacao = normalizeContratoSituacao(req(fd, "situacao"));
-  const c = await assertContratoOperacional(id);
-  await db.update(contratos).set({ situacao }).where(eq(contratos.id, id));
-  await logEvent({ tipo: "contrato_situacao", descricao: `Contrato ${c?.numero ?? id} marcado como ${situacao}.`, municipioId: c?.municipioId ?? null, contratoId: id });
-  await syncPendencias();
-  done();
-}
-
-export async function setContratoDataAssinatura(fd: FormData) {
-  await requireServerActionPermission();
-  const id = req(fd, "id");
-  const dataAssinatura = req(fd, "dataAssinatura");
-  const data = /^\d{4}-\d{2}-\d{2}$/.test(dataAssinatura)
-    ? new Date(`${dataAssinatura}T00:00:00Z`)
-    : null;
-  if (!data || Number.isNaN(data.getTime()) || data.toISOString().slice(0, 10) !== dataAssinatura) {
-    throw new Error("Informe uma data de assinatura válida.");
-  }
-
-  const contrato = await assertContratoOperacional(id);
-  if (contrato.dataAssinatura === dataAssinatura) return;
-
-  await db.update(contratos).set({ dataAssinatura }).where(eq(contratos.id, id));
-  const descricao = contrato.dataAssinatura
-    ? `Data de assinatura do contrato ${contrato.numero} corrigida de ${contrato.dataAssinatura} para ${dataAssinatura}.`
-    : `Assinatura do contrato ${contrato.numero} recebida em ${dataAssinatura}.`;
-  await logEvent({
-    tipo: "contrato_assinatura",
-    descricao,
-    municipioId: contrato.municipioId,
-    contratoId: id,
-  });
-  await syncPendencias();
-  done();
-}
-
 export async function vincularModulo(fd: FormData) {
   await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
   const baseModuleId = req(fd, "baseModuleId");
   const c = await assertContratoOperacional(contratoId);
-  await assertModuloOperacional(baseModuleId);
-  await db.insert(contratoModulos).values({ contratoId, baseModuleId }).onConflictDoNothing();
-  await logEvent({ tipo: "modulo_vinculado", descricao: "Módulo vinculado ao contrato.", municipioId: c?.municipioId ?? null, baseModuleId, contratoId });
+  const modulo = await assertModuloOperacional(baseModuleId);
+  const base = await assertBaseOperacional(modulo.baseId);
+  if (base.municipioId !== c.municipioId) {
+    throw new Error("O módulo deve pertencer ao cliente deste contrato.");
+  }
+  const inserted = await db.transaction(async (tx) => {
+    await tx.select({ id: bases.id }).from(bases).where(eq(bases.id, base.id)).for("update");
+    const existingLinks = await tx
+      .select({ baseId: baseModules.baseId, contratoId: contratoModulos.contratoId })
+      .from(contratoModulos)
+      .innerJoin(baseModules, eq(baseModules.id, contratoModulos.baseModuleId))
+      .where(eq(baseModules.baseId, base.id));
+    validateBaseAvailability([base.id], existingLinks, contratoId);
+    return tx.insert(contratoModulos).values({ contratoId, baseModuleId }).onConflictDoNothing().returning();
+  });
+  if (inserted.length > 0) await logEvent({ tipo: "modulo_vinculado", descricao: "Módulo vinculado ao contrato.", municipioId: c.municipioId, baseId: base.id, baseModuleId, contratoId });
   await syncPendencias();
   done();
 }
 
-export async function desvincularModulo(fd: FormData) {
-  await requireServerActionPermission();
-  const contratoId = req(fd, "contratoId");
-  const baseModuleId = req(fd, "baseModuleId");
-  const c = await assertContratoOperacional(contratoId);
-  await assertModuloOperacional(baseModuleId);
-  await db
-    .delete(contratoModulos)
-    .where(and(eq(contratoModulos.contratoId, contratoId), eq(contratoModulos.baseModuleId, baseModuleId)));
-  await logEvent({ tipo: "modulo_desvinculado", descricao: "Módulo desvinculado do contrato (histórico do vínculo preservado no evento).", municipioId: c?.municipioId ?? null, baseModuleId, contratoId });
-  await syncPendencias();
-  done();
-}
-
-export async function createAditivo(fd: FormData) {
+export async function desvincularBaseContrato(fd: FormData) {
   const session = await requireServerActionPermission();
   const contratoId = req(fd, "contratoId");
+  const baseId = req(fd, "baseId");
+  const motivo = req(fd, "motivo");
+  if (!CONTRACT_UNLINK_REASONS.includes(motivo as (typeof CONTRACT_UNLINK_REASONS)[number])) {
+    throw new Error("Selecione um motivo válido para a desvinculação.");
+  }
+  const observacoes = str(fd, "observacoes");
   const c = await assertContratoOperacional(contratoId);
-  const tipo = str(fd, "tipo") ?? "alteracao_contratual";
-  const isInclusaoModulo = tipo === ADITIVO_TIPO_INCLUSAO_MODULO;
-  const isExclusaoModulo = tipo === ADITIVO_TIPO_EXCLUSAO_MODULO;
-  const isAlteracaoModulos = isInclusaoModulo || isExclusaoModulo;
-  const baseModuleIds = [
-    ...new Set(
-      fd
-        .getAll("baseModuleIds")
-        .filter((value): value is string => typeof value === "string" && value.trim() !== "")
-        .map((value) => value.trim()),
-    ),
-  ];
-
-  if (isAlteracaoModulos && baseModuleIds.length === 0) {
-    throw new Error("Selecione ao menos um módulo para registrar este aditivo.");
-  }
-
-  const selectedModules = isAlteracaoModulos
-    ? await db.select().from(baseModules).where(inArray(baseModules.id, baseModuleIds))
-    : [];
-  const selectedBaseIds = [...new Set(selectedModules.map((modulo) => modulo.baseId))];
-  const selectedBases = selectedBaseIds.length
-    ? await db.select().from(bases).where(inArray(bases.id, selectedBaseIds))
-    : [];
-  const basesDoCliente = new Set(
-    selectedBases.filter((base) => base.municipioId === c.municipioId).map((base) => base.id),
-  );
-  if (
-    isAlteracaoModulos &&
-    (selectedModules.length !== baseModuleIds.length || selectedModules.some((modulo) => !basesDoCliente.has(modulo.baseId)))
-  ) {
-    throw new Error("Selecione apenas módulos cadastrados para o cliente deste contrato.");
-  }
-
-  if (isAlteracaoModulos) {
-    const vinculosAtuais = await db
+  const base = await assertBaseOperacional(baseId);
+  if (base.municipioId !== c.municipioId) throw new Error("A base deve pertencer ao cliente deste contrato.");
+  await db.transaction(async (tx) => {
+    await tx.select({ id: bases.id }).from(bases).where(eq(bases.id, baseId)).for("update");
+    const linked = await tx
       .select({ baseModuleId: contratoModulos.baseModuleId })
       .from(contratoModulos)
-      .where(and(eq(contratoModulos.contratoId, contratoId), inArray(contratoModulos.baseModuleId, baseModuleIds)));
-    if (isInclusaoModulo && vinculosAtuais.length > 0) {
-      throw new Error("Um ou mais módulos selecionados já estão vinculados a este contrato.");
-    }
-    if (isExclusaoModulo && vinculosAtuais.length !== baseModuleIds.length) {
-      throw new Error("Um ou mais módulos selecionados não estão vinculados a este contrato.");
-    }
-  }
-
-  const novaDataFim = tipo === ADITIVO_TIPO_ALTERACAO_PRAZO ? req(fd, "novaDataFim") : null;
-  const arquivo = fileFromFormData(fd);
-  if (!arquivo) throw new Error("Selecione um arquivo para anexar ao aditivo.");
-  const baseById = new Map(selectedBases.map((base) => [base.id, base]));
-  const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
-  let uploadedKey: string | null = null;
-  await db.transaction(async (tx) => {
-    const [aditivo] = await tx
-      .insert(aditivos)
-      .values({
-        contratoId,
-        tipo,
-        data: str(fd, "data") ?? today(),
-        descricao: req(fd, "descricao"),
-        novaDataFim,
-      })
-      .returning();
-
-    if (novaDataFim) {
-      await tx.update(contratos).set({ dataFim: novaDataFim }).where(eq(contratos.id, contratoId));
-    }
-
-    if (isInclusaoModulo) {
-      await tx.insert(contratoModulos).values(
-        baseModuleIds.map((baseModuleId) => ({ contratoId, baseModuleId })),
-      );
-    }
-
-    if (isExclusaoModulo) {
-      const removidos = await tx
-        .delete(contratoModulos)
-        .where(and(eq(contratoModulos.contratoId, contratoId), inArray(contratoModulos.baseModuleId, baseModuleIds)))
-        .returning({ baseModuleId: contratoModulos.baseModuleId });
-      if (removidos.length !== baseModuleIds.length) {
-        throw new Error("Os vínculos do contrato foram alterados. Revise os módulos e tente novamente.");
-      }
-    }
-
-    if (arquivo) {
-      const documentoId = newId();
-      const uploaded = await uploadDocumentFile(arquivo, c.municipioId, documentoId);
-      uploadedKey = uploaded.key;
-      await tx.insert(documentos).values({
-        id: documentoId,
-        municipioId: c.municipioId,
-        contratoId,
-        aditivoId: aditivo.id,
-        tipo: str(fd, "documentoTipo") ?? "aditivo",
-        nome: str(fd, "documentoNome") ?? uploaded.originalName,
-        storageKey: uploaded.key,
-        mimeType: uploaded.contentType,
-        tamanhoBytes: uploaded.size,
-        arquivoNomeOriginal: uploaded.originalName,
-      });
-    }
-
-    const eventDate = aditivo.data ?? today();
+      .innerJoin(baseModules, eq(baseModules.id, contratoModulos.baseModuleId))
+      .where(and(eq(contratoModulos.contratoId, contratoId), eq(baseModules.baseId, baseId)));
+    if (linked.length === 0) throw new Error("Esta base não está vinculada ao contrato.");
+    await tx.delete(contratoModulos).where(and(
+      eq(contratoModulos.contratoId, contratoId),
+      inArray(contratoModulos.baseModuleId, linked.map((item) => item.baseModuleId)),
+    ));
     await tx.insert(eventos).values({
-      tipo: "aditivo_criado",
-      descricao: `Aditivo (${aditivo.tipo}): ${aditivo.descricao}`,
+      tipo: "base_desvinculada_contrato",
+      descricao: `Base ${base.nome} desvinculada do contrato ${c.numero}. Motivo: ${motivo}.${observacoes ? ` Observações: ${observacoes}` : ""} ${linked.length} módulo(s) liberado(s).`,
       municipioId: c.municipioId,
+      baseId,
       contratoId,
-      aditivoId: aditivo.id,
-      data: eventDate,
-      usuario,
+      data: today(),
+      usuario: session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna",
     });
-
-    if (isAlteracaoModulos) {
-      await tx.insert(eventos).values(
-        selectedModules.map((modulo) => {
-          const baseNome = baseById.get(modulo.baseId)?.nome ?? "Base não encontrada";
-          return {
-            tipo: isInclusaoModulo ? "modulo_vinculado" : "modulo_desvinculado",
-            descricao: `Módulo ${modulo.nome} da base ${baseNome} ${
-              isInclusaoModulo ? "vinculado ao" : "desvinculado do"
-            } contrato por meio de aditivo.`,
-            municipioId: c.municipioId,
-            baseId: modulo.baseId,
-            baseModuleId: modulo.id,
-            contratoId,
-            aditivoId: aditivo.id,
-            data: eventDate,
-            usuario,
-          };
-        }),
-      );
-    }
-
-    return aditivo;
-  }).catch(async (error) => {
-    if (uploadedKey) await deleteDocumentFile(uploadedKey).catch(() => undefined);
-    throw error;
   });
   await syncPendencias();
   done();
@@ -985,6 +846,11 @@ export async function createDocumento(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   await assertDocumentoContextoOperacional(fd, municipioId);
+  const contratoId = str(fd, "contratoId");
+  if (contratoId) {
+    const contrato = await assertContratoOperacional(contratoId);
+    if (contrato.municipioId !== municipioId) throw new Error("O contrato deve pertencer ao cliente selecionado.");
+  }
   const arquivo = fileFromFormData(fd);
   if (!arquivo) throw new Error("Selecione um arquivo para anexar.");
 
@@ -1000,10 +866,10 @@ export async function createDocumento(fd: FormData) {
         baseId: str(fd, "baseId"),
         baseModuleId: str(fd, "baseModuleId"),
         propostaId: str(fd, "propostaId"),
-        contratoId: str(fd, "contratoId"),
+        contratoId,
         eventoId: str(fd, "eventoId"),
-        tipo: str(fd, "tipo") ?? "outros",
-        nome: str(fd, "nome") ?? uploaded.originalName,
+        tipo: documentTypeForContext(contratoId, str(fd, "tipo")),
+        nome: contratoId ? uploaded.originalName : str(fd, "nome") ?? uploaded.originalName,
         referencia: str(fd, "referencia"),
         storageKey: uploaded.key,
         mimeType: uploaded.contentType,

@@ -11,9 +11,10 @@ import {
 } from "@/db/schema";
 import { Badge, Empty, Panel, PanelHeader } from "@/components/ui";
 import { MUNICIPIO_SITUACOES, optLabel, optTone } from "@/lib/constants";
-import { contratadoSet, contratoView, syncPendencias } from "@/lib/domain";
+import { contratadoSet, syncPendencias } from "@/lib/domain";
+import { isOperationalPendingType } from "@/lib/contract-reference";
 import { reportLinks } from "@/lib/reports/pdf";
-import { countBy, formatDate } from "@/lib/utils";
+import { countBy } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -50,23 +51,15 @@ export default async function RelatoriosPage() {
   ]);
 
   const baseById = new Map(bs.map((b) => [b.id, b]));
-  const conSet = contratadoSet(cms, cs);
-  const views = cs.map((c) => ({ c, view: contratoView(c) }));
+  const conSet = contratadoSet(cms);
   const ativos = ms.filter((m) => m.situacao === "cliente_ativo");
   const porSituacao = countBy(ms, (m) => m.situacao);
-  const semContrato = ms.filter(
-    (m) => !cs.some((c) => c.municipioId === m.id && c.situacao === "vigente"),
-  );
-  const basesSemFormalizacao = bs.filter(
-    (b) => !cs.some((c) => c.municipioId === b.municipioId && c.situacao === "vigente"),
-  );
+  const semContrato = ms.filter((m) => !cs.some((c) => c.municipioId === m.id));
+  const basesSemFormalizacao = bs.filter((b) => !mods.some((modulo) => modulo.baseId === b.id && conSet.has(modulo.id)));
   const contratados = mods.filter((m) => conSet.has(m.id));
   const habilitados = mods.filter((m) => m.habilitadoAt && !m.desabilitadoAt);
   const semUtilizacao = habilitados.filter((m) => !m.execucaoInicio);
-  const vigentes = views.filter((v) => v.c.situacao === "vigente" && v.view.value === "vigente");
-  const vencendo = views.filter((v) => v.view.value === "proximo_vencimento");
-  const vencidos = views.filter((v) => v.view.value === "vencido");
-  const abertas = pends.filter((p) => p.situacao === "aberta");
+  const abertas = pends.filter((p) => p.situacao === "aberta" && isOperationalPendingType(p.tipo));
   const pendsPorMun = countBy(abertas.filter((p) => p.municipioId), (p) => p.municipioId!);
   const munById = new Map(ms.map((m) => [m.id, m]));
 
@@ -106,10 +99,10 @@ export default async function RelatoriosPage() {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Clientes sem contrato vigente" right={<PdfButton tipo="ficha-clientes" />} />
+        <PanelHeader title="Clientes sem contrato" />
         <div className="flex flex-col gap-2 p-3 sm:p-4">
           {semContrato.length === 0 ? (
-            <Empty title="Todos possuem contrato vigente" />
+            <Empty title="Todos possuem contrato cadastrado" />
           ) : (
             semContrato.map((m) => (
               <Row key={m.id}>
@@ -124,10 +117,10 @@ export default async function RelatoriosPage() {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Bases sem formalizacao" description="Bases de clientes sem contrato vigente" right={<PdfButton tipo="bases-incompletas" />} />
+        <PanelHeader title="Bases sem cobertura contratual" description="Bases sem módulo vinculado a contrato" />
         <div className="flex flex-col gap-2 p-3 sm:p-4">
           {basesSemFormalizacao.length === 0 ? (
-            <Empty title="Todas as bases estão formalizadas" />
+            <Empty title="Todas as bases possuem módulo contemplado" />
           ) : (
             basesSemFormalizacao.map((b) => (
               <Row key={b.id}>
@@ -168,26 +161,26 @@ export default async function RelatoriosPage() {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Contratos" description="Vigentes, vencendo e vencidos" right={<PdfButton tipo="contratos-vencimento" />} />
+        <PanelHeader title="Contratos" description="Referências e cobertura por cliente" right={<PdfButton tipo="contratos-cobertura" />} />
         <div className="flex flex-col gap-2 p-3 sm:p-4">
           <Row>
-            <span className="text-app-foreground">Vigentes</span>
-            <Badge tone="success">{vigentes.length}</Badge>
+            <span className="text-app-foreground">Cadastrados</span>
+            <Badge tone="success">{cs.length}</Badge>
           </Row>
           <Row>
-            <span className="text-app-foreground">Vencendo (≤ 60d)</span>
-            <Badge tone="warning">{vencendo.length}</Badge>
+            <span className="text-app-foreground">Clientes com contrato</span>
+            <Badge tone="primary">{new Set(cs.map((c) => c.municipioId)).size}</Badge>
           </Row>
           <Row>
-            <span className="text-app-foreground">Vencidos</span>
-            <Badge tone="danger">{vencidos.length}</Badge>
+            <span className="text-app-foreground">Módulos contemplados</span>
+            <Badge tone="primary">{contratados.length}</Badge>
           </Row>
-          {[...vencendo, ...vencidos].slice(0, 6).map(({ c, view }) => (
+          {cs.slice(0, 6).map((c) => (
             <Row key={c.id}>
               <Link href={`/contratos/${c.id}`} className="text-xs font-semibold text-app-foreground hover:text-app-primary hover:underline">
-                Contrato {c.numero} · {munById.get(c.municipioId)?.clienteNome} · ate {formatDate(c.dataFim)}
+                Contrato {c.numero} · {munById.get(c.municipioId)?.clienteNome}
               </Link>
-              <Badge tone={view.tone}>{view.label}</Badge>
+              <Badge tone="primary">{cms.filter((cm) => cm.contratoId === c.id).length} módulos</Badge>
             </Row>
           ))}
         </div>
