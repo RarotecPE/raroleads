@@ -26,9 +26,8 @@ export async function GET(request: NextRequest) {
     path: "/",
     maxAge: SSO_COOKIE_MAX_AGE,
   };
-  response.cookies.set(config.cookies.state, state, cookieOptions);
-  response.cookies.set(config.cookies.next, next, cookieOptions);
-  response.cookies.set(config.cookies.mode, mode, cookieOptions);
+  response.cookies.set(mode === "silent" ? config.cookies.silentState : config.cookies.state, state, cookieOptions);
+  response.cookies.set(mode === "silent" ? config.cookies.silentNext : config.cookies.next, next, cookieOptions);
 
   return response;
 }

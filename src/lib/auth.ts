@@ -55,6 +55,8 @@ export function getRaroNexusConfig(request?: NextRequest) {
       state: `${clientId}_sso_state`,
       next: `${clientId}_sso_next`,
       mode: `${clientId}_sso_mode`,
+      silentState: `${clientId}_sso_silent_state`,
+      silentNext: `${clientId}_sso_silent_next`,
     },
   };
 }

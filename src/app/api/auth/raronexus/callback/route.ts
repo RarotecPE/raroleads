@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   AUTH_COOKIE_MAX_AGE,
-  clearAuthCookies,
   exchangeCodeForSession,
   getRaroNexusConfig,
   sanitizeNext,
@@ -65,23 +64,32 @@ function htmlResponse(body: string, init?: ResponseInit) {
 
 export async function GET(request: NextRequest) {
   const config = getRaroNexusConfig(request);
-  const savedState = request.cookies.get(config.cookies.state)?.value;
-  const savedNext = sanitizeNext(request.cookies.get(config.cookies.next)?.value);
-  const mode = request.cookies.get(config.cookies.mode)?.value === "silent" ? "silent" : "interactive";
   const state = request.nextUrl.searchParams.get("state");
   const code = request.nextUrl.searchParams.get("code");
   const error = request.nextUrl.searchParams.get("error");
+  const silent = Boolean(state && state === request.cookies.get(config.cookies.silentState)?.value);
+  const interactive = Boolean(state && state === request.cookies.get(config.cookies.state)?.value);
+  const mode = silent ? "silent" : "interactive";
+  const stateCookie = silent ? config.cookies.silentState : config.cookies.state;
+  const nextCookie = silent ? config.cookies.silentNext : config.cookies.next;
+  const savedNext = sanitizeNext(request.cookies.get(nextCookie)?.value);
+
+  const clearFlowCookies = (response: NextResponse) => {
+    if (!silent && !interactive) return;
+    response.cookies.delete(stateCookie);
+    response.cookies.delete(nextCookie);
+  };
 
   const fail = (message: string, statusCode = 400) => {
     const response = htmlResponse(callbackPage({ status: "error", mode, message, redirectTo: `/login?next=${encodeURIComponent(savedNext)}` }), {
       status: statusCode,
     });
-    clearAuthCookies(response);
+    clearFlowCookies(response);
     return response;
   };
 
-  if (error) return fail("Nao foi possivel concluir o login pelo RaroNexus.");
-  if (!state || !savedState || state !== savedState) return fail("Estado de autenticacao invalido.");
+  if (!silent && !interactive) return fail("Estado de autenticacao invalido.");
+  if (error) return fail("Nao foi possivel concluir o login pelo RaroNexus.", silent ? 200 : 400);
   if (!code) return fail("Codigo de autorizacao ausente.");
 
   try {
@@ -115,9 +123,7 @@ export async function GET(request: NextRequest) {
       user: payload.data.user,
       permissions: permissionsForRole(roleKey),
     });
-    response.cookies.delete(config.cookies.state);
-    response.cookies.delete(config.cookies.next);
-    response.cookies.delete(config.cookies.mode);
+    clearFlowCookies(response);
     return response;
   } catch {
     return fail("RaroNexus indisponivel no momento.", 502);

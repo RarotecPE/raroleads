@@ -24,15 +24,20 @@ function LoginContent() {
   const next = useMemo(() => sanitizeNext(params.get("next")), [params]);
   const [message, setMessage] = useState<string | null>(null);
   const [silentDone, setSilentDone] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/auth/session", { cache: "no-store" })
       .then((r) => r.json())
       .then((data: SessionResponse) => {
-        if (!cancelled && data.authenticated) router.replace(next);
+        if (cancelled) return;
+        if (data.authenticated) router.replace(next);
+        else setSessionChecked(true);
       })
-      .catch(() => null);
+      .catch(() => {
+        if (!cancelled) setSessionChecked(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -71,11 +76,13 @@ function LoginContent() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-app-background px-4 py-10">
-      <iframe
-        title="SSO silencioso RaroNexus"
-        src={`/api/auth/raronexus/start?mode=silent&next=${encodeURIComponent(next)}`}
-        className="hidden"
-      />
+      {sessionChecked ? (
+        <iframe
+          title="SSO silencioso RaroNexus"
+          src={`/api/auth/raronexus/start?mode=silent&next=${encodeURIComponent(next)}`}
+          className="hidden"
+        />
+      ) : null}
       <section className="w-full max-w-md rounded-app-lg border border-app-border bg-app-surface p-6 shadow-app-elevated">
         <div className="mb-6">
           <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-app-lg bg-white p-2">
