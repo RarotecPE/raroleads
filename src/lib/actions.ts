@@ -857,65 +857,6 @@ export async function reabilitarModulo(fd: FormData) {
   done();
 }
 
-/* ---------------- Propostas ---------------- */
-
-export async function createProposta(fd: FormData) {
-  await requireServerActionPermission();
-  const municipioId = req(fd, "municipioId");
-  await assertClienteOperacional(municipioId);
-  const arquivo = fileFromFormData(fd);
-  let uploadedKey: string | null = null;
-  const row = await db.transaction(async (tx) => {
-    const [proposta] = await tx
-      .insert(propostas)
-      .values({
-        municipioId,
-        tipo: str(fd, "tipo") ?? "formal",
-        data: str(fd, "data") ?? today(),
-        basesEnvolvidas: str(fd, "basesEnvolvidas"),
-        modulosEnvolvidos: str(fd, "modulosEnvolvidos"),
-        observacoes: str(fd, "observacoes"),
-      })
-      .returning();
-
-    if (arquivo) {
-      const documentoId = newId();
-      const uploaded = await uploadDocumentFile(arquivo, municipioId, documentoId);
-      uploadedKey = uploaded.key;
-      await tx.insert(documentos).values({
-        id: documentoId,
-        municipioId,
-        propostaId: proposta.id,
-        tipo: str(fd, "documentoTipo") ?? "proposta",
-        nome: str(fd, "documentoNome") ?? uploaded.originalName,
-        storageKey: uploaded.key,
-        mimeType: uploaded.contentType,
-        tamanhoBytes: uploaded.size,
-        arquivoNomeOriginal: uploaded.originalName,
-      });
-    }
-
-    return proposta;
-  }).catch(async (error) => {
-    if (uploadedKey) await deleteDocumentFile(uploadedKey).catch(() => undefined);
-    throw error;
-  });
-  await logEvent({ tipo: "proposta_criada", descricao: `Proposta criada (${row.tipo}).`, municipioId, data: row.data ?? today() });
-  await syncPendencias();
-  done();
-}
-
-export async function setPropostaSituacao(fd: FormData) {
-  await requireServerActionPermission();
-  const id = req(fd, "id");
-  const situacao = req(fd, "situacao");
-  const p = await assertPropostaOperacional(id);
-  await db.update(propostas).set({ situacao }).where(eq(propostas.id, id));
-  await logEvent({ tipo: "proposta_situacao", descricao: `Proposta marcada como ${situacao}.`, municipioId: p?.municipioId ?? null });
-  await syncPendencias();
-  done();
-}
-
 /* ---------------- Contratos ---------------- */
 
 export async function createContrato(fd: FormData) {

@@ -1,10 +1,17 @@
 const MODULE_ENABLED_EMAIL_PATH = "/api/email/modulo-habilitado";
 
+export type RaroNexusEmailAttachment = {
+  filename: string;
+  content_type: string;
+  content_base64: string;
+};
+
 export type RaroNexusEmailPayload = {
   to: string;
   subject: string;
   body: string;
   metadata?: Record<string, unknown>;
+  attachments?: RaroNexusEmailAttachment[];
 };
 
 type RaroNexusEmailResponse = {
@@ -29,8 +36,7 @@ function responseErrorMessage(payload: RaroNexusEmailResponse | null) {
   return "A API RaroNexus retornou uma resposta sem sucesso.";
 }
 
-export async function sendRaroNexusEmail(payload: RaroNexusEmailPayload) {
-  const endpoint = MODULE_ENABLED_EMAIL_PATH;
+export async function sendRaroNexusEmail(payload: RaroNexusEmailPayload, endpoint = MODULE_ENABLED_EMAIL_PATH) {
   const url = new URL(endpoint, getEnv("RARONEXUS_BASE_URL"));
   const clientId = getEnv("RARONEXUS_CLIENT_ID");
   const clientSecret = getEnv("RARONEXUS_CLIENT_SECRET");

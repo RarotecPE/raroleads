@@ -6,6 +6,7 @@ import {
   Building2,
   FileText,
   LayoutDashboard,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 export const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clientes", label: "Clientes", icon: Building2 },
+  { href: "/propostas", label: "Propostas", icon: Send },
   { href: "/contratos", label: "Contratos", icon: FileText },
   { href: "/pendencias", label: "Pendências", icon: AlertTriangle },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },

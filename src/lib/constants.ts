@@ -53,19 +53,24 @@ export const MODULE_CATALOG = [
 ] as const;
 
 export const PROPOSTA_TIPOS: Option[] = [
-  { value: "Proposta formal", label: "Proposta formal", tone: "primary" },
-  { value: "Proposta de pregão", label: "Proposta de pregão", tone: "primary" },
-  { value: "Proposta final de licitação", label: "Proposta final de licitação", tone: "primary" },
-  { value: "Negociação informal", label: "Negociação informal", tone: "muted" },
-  { value: "Solicitação comercial", label: "Solicitação comercial", tone: "muted" },
+  { value: "implantacao_sistema", label: "Implantação do sistema", tone: "primary" },
+  { value: "consultoria", label: "Consultoria", tone: "warning" },
 ];
 
 export const PROPOSTA_SITUACOES: Option[] = [
-  { value: "Criada", label: "Criada", tone: "muted" },
-  { value: "Apresentada", label: "Apresentada", tone: "primary" },
-  { value: "Aceita", label: "Aceita", tone: "success" },
-  { value: "Recusada", label: "Recusada", tone: "danger" },
-  { value: "Convertida em contrato", label: "Convertida em contrato", tone: "success" },
+  { value: "solicitada", label: "Solicitada", tone: "muted" },
+  { value: "gerada", label: "Gerada", tone: "warning" },
+  { value: "enviada", label: "Enviada", tone: "primary" },
+  { value: "aceita", label: "Aceita", tone: "success" },
+  { value: "recusada", label: "Recusada", tone: "danger" },
+  { value: "em_retificacao", label: "Em retificação", tone: "warning" },
+];
+
+export const PROPOSTA_ESPECIFICIDADES: Option[] = [
+  { value: "portal", label: "Portal", tone: "primary" },
+  { value: "sagres", label: "Envio SAGRES", tone: "warning" },
+  { value: "esocial", label: "Envio eSocial", tone: "warning" },
+  { value: "recadastramento", label: "Recadastramento", tone: "muted" },
 ];
 
 export const CONTRATO_MODALIDADES: Option[] = [
@@ -211,6 +216,7 @@ const ALL = [
   ...BASE_SITUACOES,
   ...PROPOSTA_TIPOS,
   ...PROPOSTA_SITUACOES,
+  ...PROPOSTA_ESPECIFICIDADES,
   ...CONTRATO_MODALIDADES,
   ...CONTRATO_SITUACOES,
   ...ADITIVO_TIPOS,

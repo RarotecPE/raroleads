@@ -18,19 +18,15 @@ import {
   createBase,
   createDocumento,
   createModulo,
-  createProposta,
   createResponsavelModulo,
   deleteResponsavelModulo,
   desvincularBaseSuperior,
-  setPropostaSituacao,
   updateBase,
   updateResponsavelModulo,
 } from "@/lib/actions";
 import {
   DOCUMENTO_TIPOS,
   MODULE_CATALOG,
-  PROPOSTA_SITUACOES,
-  PROPOSTA_TIPOS,
 } from "@/lib/constants";
 import { norm } from "@/lib/utils";
 
@@ -240,83 +236,6 @@ export function DeleteResponsavelModuloForm({
         </div>
       </DialogForm>
     </Dialog>
-  );
-}
-
-export function PropostaForm({ trigger, municipioId }: { trigger: ReactNode; municipioId: string }) {
-  return (
-    <Dialog
-      trigger={trigger}
-      title="Nova proposta"
-      description="A proposta representa a origem comercial da relação."
-    >
-      <DialogForm action={createProposta}>
-        <input type="hidden" name="municipioId" value={municipioId} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Tipo">
-            <select name="tipo" className={selectCls} defaultValue="formal">
-              {PROPOSTA_TIPOS.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Data">
-            <input type="date" name="data" className={inputCls} />
-          </Field>
-          <Field label="Bases envolvidas">
-            <input name="basesEnvolvidas" className={inputCls} placeholder="Prefeitura, Saúde…" />
-          </Field>
-          <Field label="Módulos envolvidos">
-            <input name="modulosEnvolvidos" className={inputCls} placeholder="Contabilidade, RH…" />
-          </Field>
-        </div>
-        <Field label="Observações">
-          <textarea name="observacoes" rows={2} className={textareaCls} />
-        </Field>
-        <div className="rounded-app-md border border-app-border bg-app-surface-elevated/30 p-3">
-          <p className="text-sm font-semibold text-app-foreground">Anexo da proposta</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Tipo do documento">
-              <select name="documentoTipo" className={selectCls} defaultValue="proposta">
-                {DOCUMENTO_TIPOS.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Nome de exibicao">
-              <input name="documentoNome" className={inputCls} placeholder="Ex.: Proposta comercial" />
-            </Field>
-            <Field label="Arquivo" hint="Documentos e imagens ate 20 MB." className="sm:col-span-2">
-              <FileInput name="arquivo" accept={FILE_ACCEPT} />
-            </Field>
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <SubmitButton className={btnPrimary}>Registrar proposta</SubmitButton>
-        </div>
-      </DialogForm>
-    </Dialog>
-  );
-}
-
-/** Troca rápida de situação da proposta. */
-export function PropostaSituacaoForm({ id, situacao }: { id: string; situacao: string }) {
-  return (
-    <form action={setPropostaSituacao} className="flex items-center gap-1">
-      <input type="hidden" name="id" value={id} />
-      <label className="sr-only" htmlFor={`propsit-${id}`}>Situação da proposta</label>
-      <select
-        id={`propsit-${id}`}
-        name="situacao"
-        defaultValue={situacao}
-        className="h-8 rounded-app-sm border border-app-border bg-app-surface px-2 text-xs text-app-foreground focus-visible:outline-none"
-      >
-        {PROPOSTA_SITUACOES.map((s) => (
-          <option key={s.value} value={s.value}>{s.label}</option>
-        ))}
-      </select>
-      <SubmitButton className={btnXs}>Salvar</SubmitButton>
-    </form>
   );
 }
 

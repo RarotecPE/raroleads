@@ -98,9 +98,13 @@ async function main() {
     .insert(propostas)
     .values({
       municipioId: tacaratu.id,
-      tipo: "formal",
+      tipo: "implantacao_sistema",
       data: d(-75),
-      situacao: "convertida",
+      situacao: "aceita",
+      clienteNomeSnapshot: tacaratu.clienteNome,
+      municipioNome: tacaratu.municipio,
+      uf: tacaratu.uf,
+      codigoIbge: tacaratu.codigoIbge,
       basesEnvolvidas: "Prefeitura, Saúde",
       modulosEnvolvidos: "Contabilidade, RH, Tributos, Portal",
       observacoes: "Proposta apresentada ao prefeito e ao contador.",
@@ -256,9 +260,13 @@ async function main() {
 
   await db.insert(propostas).values({
     municipioId: vitoria.id,
-    tipo: "pregao",
+    tipo: "implantacao_sistema",
     data: d(-9),
-    situacao: "apresentada",
+    situacao: "enviada",
+    clienteNomeSnapshot: vitoria.clienteNome,
+    municipioNome: vitoria.municipio,
+    uf: vitoria.uf,
+    codigoIbge: vitoria.codigoIbge,
     basesEnvolvidas: "Prefeitura",
     modulosEnvolvidos: "Contabilidade, RH, Frota, Compras",
     observacoes: "Pregão eletrônico — aguardando resultado.",

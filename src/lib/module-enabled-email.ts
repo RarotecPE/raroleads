@@ -79,7 +79,7 @@ export function buildModuleEnabledEmail(context: ModuleEnabledEmailContext) {
   const origin = context.requestOrigin?.trim();
   const body = [
     `<p>Olá, <strong>${escapeHtml(greeting)}</strong>.</p>`,
-    `<p>Informamos que o módulo <strong>${escapeHtml(context.moduleName)}</strong>, da base <strong>${escapeHtml(context.baseName)}</strong>, foi habilitado para <strong>${escapeHtml(context.customerName)}</strong> no dia ${escapeHtml(formatDate(context.enabledAt))} conforme solicitado via <strong>${origin}</strong>.</p>`,
+    `<p>Informamos que o módulo <strong>${escapeHtml(context.moduleName)}</strong>, da base <strong>${escapeHtml(context.baseName)}</strong>, foi habilitado para <strong>${escapeHtml(context.customerName)}</strong> em ${escapeHtml(formatDate(context.enabledAt))}${origin ? ` conforme solicitado via ${escapeHtml(origin)}` : ""}.</p>`,
   ].join("");
 
   return {

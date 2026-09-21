@@ -10,6 +10,10 @@ const expectedTables = [
   "modulo_responsaveis",
   "base_modules",
   "propostas",
+  "proposta_bases",
+  "proposta_modulos",
+  "proposta_especificidades",
+  "proposta_historico",
   "contratos",
   "contrato_modulos",
   "aditivos",
@@ -51,7 +55,15 @@ const expectedClienteColumns = [
   "situacao",
   "dados_administrativos",
   "observacoes",
+  "proposta_versao",
   "created_at",
+];
+
+const expectedPropostaColumns = [
+  "id", "municipio_id", "tipo", "data", "situacao", "cliente_nome_snapshot",
+  "municipio_nome", "uf", "codigo_ibge", "atividade_conjunta", "gerada_at",
+  "enviada_at", "decisao_at", "bases_envolvidas", "modulos_envolvidos",
+  "observacoes", "created_at",
 ];
 
 const expectedModuloResponsavelColumns = [
@@ -177,6 +189,10 @@ try {
     "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
     ["aditivos"],
   );
+  const propostaColumns = await pool.query(
+    "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
+    ["propostas"],
+  );
   const baseColumns = await pool.query(
     "select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1 order by ordinal_position",
     ["bases"],
@@ -192,6 +208,7 @@ try {
   const clienteColumnNames = clienteColumns.rows.map((row) => row.column_name);
   const moduloResponsavelColumnNames = moduloResponsavelColumns.rows.map((row) => row.column_name);
   const documentoColumnNames = documentoColumns.rows.map((row) => row.column_name);
+  const propostaColumnNames = propostaColumns.rows.map((row) => row.column_name);
   const aditivoColumnNames = aditivoColumns.rows.map((row) => row.column_name);
   const eventoColumnNames = eventoColumns.rows.map((row) => row.column_name);
   const missingTables = expectedTables.filter((table) => !tableNames.includes(table));
@@ -204,6 +221,7 @@ try {
   const missingDocumentoColumns = expectedDocumentoColumns.filter(
     (column) => !documentoColumnNames.includes(column),
   );
+  const missingPropostaColumns = expectedPropostaColumns.filter((column) => !propostaColumnNames.includes(column));
   const missingAditivoColumns = expectedAditivoColumns.filter((column) => !aditivoColumnNames.includes(column));
   const missingEventoColumns = expectedEventoColumns.filter((column) => !eventoColumnNames.includes(column));
   const ok =
@@ -213,6 +231,7 @@ try {
     missingClienteColumns.length === 0 &&
     missingModuloResponsavelColumns.length === 0 &&
     missingDocumentoColumns.length === 0 &&
+    missingPropostaColumns.length === 0 &&
     missingAditivoColumns.length === 0 &&
     missingEventoColumns.length === 0;
 
@@ -234,6 +253,8 @@ try {
         missingModuloResponsaveisColumns: missingModuloResponsavelColumns,
         documentoColumns: documentoColumnNames,
         missingDocumentoColumns,
+        propostaColumns: propostaColumnNames,
+        missingPropostaColumns,
         aditivoColumns: aditivoColumnNames,
         missingAditivoColumns,
         eventoColumns: eventoColumnNames,

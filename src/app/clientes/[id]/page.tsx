@@ -26,8 +26,6 @@ import {
   DeleteResponsavelModuloForm,
   DocumentoForm,
   ModuloForm,
-  PropostaForm,
-  PropostaSituacaoForm,
   ResponsavelModuloForm,
 } from "@/components/registry-forms";
 import { Badge, Empty, Panel, PanelHeader, Stat, YesNo, btnGhost, btnPrimary, btnXsGhost } from "@/components/ui";
@@ -454,16 +452,7 @@ export default async function ClienteDetailPage({
           <PanelHeader
             title="Propostas"
             right={
-              !canManage || clienteEncerrado ? null : (
-                <PropostaForm
-                  municipioId={m.id}
-                  trigger={
-                    <button type="button" className={btnXsGhost}>
-                      <Plus className="h-3.5 w-3.5" /> Nova
-                    </button>
-                  }
-                />
-              )
+              <Link href="/propostas" className={btnXsGhost}>Abrir central de propostas</Link>
             }
           />
           <div className="flex flex-col gap-2 p-3 sm:p-4">
@@ -471,7 +460,7 @@ export default async function ClienteDetailPage({
               <Empty title="Nenhuma proposta" />
             ) : (
               props.map((p) => (
-                <div key={p.id} className="rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
+                <Link href={`/propostas/${p.id}`} key={p.id} className="block rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5 hover:border-app-primary/50">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-app-foreground">{optLabel(p.tipo)}</p>
                     <Badge tone={optTone(p.situacao)}>{optLabel(p.situacao)}</Badge>
@@ -481,12 +470,7 @@ export default async function ClienteDetailPage({
                     {p.basesEnvolvidas ? ` · Bases: ${p.basesEnvolvidas}` : ""}
                     {p.modulosEnvolvidos ? ` · Módulos: ${p.modulosEnvolvidos}` : ""}
                   </p>
-                  {canManage && !clienteEncerrado ? (
-                    <div className="mt-2">
-                      <PropostaSituacaoForm id={p.id} situacao={p.situacao} />
-                    </div>
-                  ) : null}
-                </div>
+                </Link>
               ))
             )}
           </div>

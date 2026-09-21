@@ -103,16 +103,49 @@ export const moduloResponsaveis = pgTable("modulo_responsaveis", {
 export const propostas = pgTable("propostas", {
   id: id(),
   municipioId: text("municipio_id")
-    .notNull()
-    .references(() => municipios.id),
-  tipo: text("tipo").notNull().default("formal"),
+    .references(() => municipios.id, { onDelete: "set null" }),
+  tipo: text("tipo").notNull().default("implantacao_sistema"),
   data: date("data"),
-  situacao: text("situacao").notNull().default("criada"),
+  situacao: text("situacao").notNull().default("solicitada"),
+  clienteNomeSnapshot: text("cliente_nome_snapshot").notNull(),
+  municipioNome: text("municipio_nome").notNull(),
+  uf: text("uf").notNull(),
+  codigoIbge: text("codigo_ibge"),
+  atividadeConjunta: boolean("atividade_conjunta"),
+  geradaAt: timestamp("gerada_at"),
+  enviadaAt: timestamp("enviada_at"),
+  decisaoAt: timestamp("decisao_at"),
   basesEnvolvidas: text("bases_envolvidas"),
   modulosEnvolvidos: text("modulos_envolvidos"),
   observacoes: text("observacoes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const propostaBases = pgTable("proposta_bases", {
+  id: id(),
+  propostaId: text("proposta_id").notNull().references(() => propostas.id, { onDelete: "cascade" }),
+  baseId: text("base_id").references(() => bases.id, { onDelete: "set null" }),
+  nome: text("nome").notNull(),
+  tipo: text("tipo"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const propostaModulos = pgTable("proposta_modulos", {
+  id: id(),
+  propostaBaseId: text("proposta_base_id").notNull().references(() => propostaBases.id, { onDelete: "cascade" }),
+  baseModuleId: text("base_module_id").references(() => baseModules.id, { onDelete: "set null" }),
+  nome: text("nome").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const propostaEspecificidades = pgTable(
+  "proposta_especificidades",
+  {
+    propostaId: text("proposta_id").notNull().references(() => propostas.id, { onDelete: "cascade" }),
+    especificidade: text("especificidade").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.propostaId, t.especificidade] })],
+);
 
 export const contratos = pgTable("contratos", {
   id: id(),
@@ -189,6 +222,20 @@ export const documentos = pgTable("documentos", {
   tamanhoBytes: integer("tamanho_bytes"),
   arquivoNomeOriginal: text("arquivo_nome_original"),
   observacoes: text("observacoes"),
+  propostaVersao: integer("proposta_versao"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const propostaHistorico = pgTable("proposta_historico", {
+  id: id(),
+  propostaId: text("proposta_id").notNull().references(() => propostas.id, { onDelete: "cascade" }),
+  documentoId: text("documento_id").references(() => documentos.id, { onDelete: "set null" }),
+  acao: text("acao").notNull(),
+  statusAnterior: text("status_anterior"),
+  statusNovo: text("status_novo"),
+  descricao: text("descricao").notNull(),
+  usuario: text("usuario").notNull().default("Equipe Interna"),
+  destinatarioEmail: text("destinatario_email"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
