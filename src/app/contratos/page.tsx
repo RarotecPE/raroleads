@@ -56,8 +56,8 @@ export default async function ContratosPage({
           right={canManage ? (
             <ContratoForm
               municipios={ms.map((m) => ({ id: m.id, nome: m.clienteNome }))}
-              bases={bs.map((b) => ({ id: b.id, municipioId: b.municipioId, nome: b.nome, tipo: b.tipo }))}
-              modulos={mods.map((modulo) => ({ id: modulo.id, baseId: modulo.baseId, nome: modulo.nome }))}
+              bases={bs.filter((base) => base.situacao === "ativa").map((b) => ({ id: b.id, municipioId: b.municipioId, nome: b.nome, tipo: b.tipo }))}
+              modulos={mods.filter((modulo) => bs.find((base) => base.id === modulo.baseId)?.situacao === "ativa").map((modulo) => ({ id: modulo.id, baseId: modulo.baseId, nome: modulo.nome }))}
               occupiedBaseIds={basesOcupadas}
               trigger={<button type="button" className={btnPrimary}><Plus className="h-4 w-4" /> Novo contrato</button>}
             />

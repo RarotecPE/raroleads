@@ -15,6 +15,7 @@ import {
   propostas,
 } from "@/db/schema";
 import { requireServerActionPermission } from "@/lib/auth";
+import { planBaseDisable, planBaseReactivation } from "@/lib/base-disable";
 import { cnpjDigits } from "@/lib/cnpj";
 import { basesMissingModule, parseNewChildBases, validateChildBaseLinks } from "@/lib/base-hierarchy";
 import {
@@ -53,6 +54,8 @@ const done = () => revalidatePath("/", "layout");
 const newId = () => crypto.randomUUID();
 const CLIENTE_ENCERRADO = "cliente_encerrado";
 const MODULO_DUPLICADO_MESSAGE = "Módulo já vinculado a base!";
+const MODULO_DESABILITADO_PELA_BASE = "Desabilitação da base";
+const today = () => new Date().toISOString().slice(0, 10);
 
 async function assertClienteOperacional(municipioId: string | null | undefined) {
   if (!municipioId) return;
@@ -62,12 +65,20 @@ async function assertClienteOperacional(municipioId: string | null | undefined) 
   }
 }
 
-async function assertBaseOperacional(baseId: string) {
+async function assertBaseCadastrada(baseId: string) {
   const [base] = await db.select().from(bases).where(eq(bases.id, baseId));
   if (!base) {
     throw new Error("Base nao encontrada.");
   }
   await assertClienteOperacional(base?.municipioId);
+  return base;
+}
+
+async function assertBaseOperacional(baseId: string) {
+  const base = await assertBaseCadastrada(baseId);
+  if (base.situacao !== "ativa") {
+    throw new Error("Base desabilitada. Reative a base antes de realizar alterações operacionais.");
+  }
   return base;
 }
 
@@ -262,7 +273,7 @@ export async function createBase(fd: FormData) {
 export async function updateBase(fd: FormData) {
   const session = await requireServerActionPermission();
   const id = req(fd, "id");
-  const base = await assertBaseOperacional(id);
+  const base = await assertBaseCadastrada(id);
   const municipioId = base.municipioId;
   const nome = req(fd, "nome");
   const newChildren = parseNewChildBases(str(fd, "inferioresNovas"));
@@ -300,7 +311,7 @@ export async function updateBase(fd: FormData) {
 export async function desvincularBaseSuperior(fd: FormData) {
   const session = await requireServerActionPermission();
   const id = req(fd, "id");
-  const base = await assertBaseOperacional(id);
+  const base = await assertBaseCadastrada(id);
   const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
   await db.transaction(async (tx) => {
     const allBases = await tx.select().from(bases).where(eq(bases.municipioId, base.municipioId)).orderBy(bases.id).for("update");
@@ -313,6 +324,146 @@ export async function desvincularBaseSuperior(fd: FormData) {
       municipioId: base.municipioId, baseId: id, data: today(), usuario,
     });
   });
+  done();
+}
+
+export async function desabilitarBase(fd: FormData) {
+  const session = await requireServerActionPermission();
+  const id = req(fd, "id");
+  const motivo = req(fd, "motivo");
+  const data = today();
+  const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
+
+  await db.transaction(async (tx) => {
+    const [requestedBase] = await tx.select().from(bases).where(eq(bases.id, id));
+    if (!requestedBase) throw new Error("Base nao encontrada.");
+    await assertClienteOperacional(requestedBase.municipioId);
+
+    const allBases = await tx
+      .select()
+      .from(bases)
+      .where(eq(bases.municipioId, requestedBase.municipioId))
+      .orderBy(bases.id)
+      .for("update");
+    const scopeBaseIds = [id, ...allBases.filter((base) => base.baseSuperiorId === id).map((base) => base.id)];
+    const allModules = await tx
+      .select()
+      .from(baseModules)
+      .where(inArray(baseModules.baseId, scopeBaseIds))
+      .orderBy(baseModules.id)
+      .for("update");
+    const plan = planBaseDisable(id, allBases, allModules);
+
+    if (plan.baseIdsToDisable.length > 0) {
+      await tx
+        .update(bases)
+        .set({
+          situacao: "inativa",
+          desabilitadoAt: data,
+          desabilitadoMotivo: motivo,
+          desabilitacaoOrigemBaseId: id,
+        })
+        .where(inArray(bases.id, plan.baseIdsToDisable));
+      await tx.insert(eventos).values(plan.baseIdsToDisable.map((baseId) => ({
+        tipo: "base_desabilitada",
+        descricao: `Base ${allBases.find((base) => base.id === baseId)?.nome ?? ""} desabilitada. Motivo: ${motivo}`,
+        municipioId: requestedBase.municipioId,
+        baseId,
+        data,
+        usuario,
+      })));
+    }
+
+    if (plan.moduleIdsToDisable.length > 0) {
+      await tx
+        .update(baseModules)
+        .set({
+          desabilitadoAt: data,
+          desabilitadoMotivo: MODULO_DESABILITADO_PELA_BASE,
+          desabilitadoJustificativa: motivo,
+          desabilitacaoOrigemBaseId: id,
+        })
+        .where(inArray(baseModules.id, plan.moduleIdsToDisable));
+      await tx.insert(eventos).values(plan.moduleIdsToDisable.map((moduleId) => ({
+        tipo: "desabilitado",
+        descricao: `Módulo desabilitado pela base ${requestedBase.nome}. Motivo: ${motivo}`,
+        municipioId: requestedBase.municipioId,
+        baseModuleId: moduleId,
+        data,
+        usuario,
+      })));
+    }
+  });
+  await syncPendencias();
+  done();
+}
+
+export async function reabilitarBase(fd: FormData) {
+  const session = await requireServerActionPermission();
+  const id = req(fd, "id");
+  const data = today();
+  const usuario = session.user.nome?.trim() || session.user.email?.trim() || "Equipe Interna";
+
+  await db.transaction(async (tx) => {
+    const [requestedBase] = await tx.select().from(bases).where(eq(bases.id, id));
+    if (!requestedBase) throw new Error("Base nao encontrada.");
+    await assertClienteOperacional(requestedBase.municipioId);
+
+    const allBases = await tx
+      .select()
+      .from(bases)
+      .where(eq(bases.municipioId, requestedBase.municipioId))
+      .orderBy(bases.id)
+      .for("update");
+    const allModules = await tx
+      .select()
+      .from(baseModules)
+      .where(inArray(baseModules.baseId, allBases.map((base) => base.id)))
+      .orderBy(baseModules.id)
+      .for("update");
+    const plan = planBaseReactivation(id, allBases, allModules);
+
+    if (plan.baseIdsToReactivate.length > 0) {
+      await tx
+        .update(bases)
+        .set({
+          situacao: "ativa",
+          desabilitadoAt: null,
+          desabilitadoMotivo: null,
+          desabilitacaoOrigemBaseId: null,
+        })
+        .where(inArray(bases.id, plan.baseIdsToReactivate));
+      await tx.insert(eventos).values(plan.baseIdsToReactivate.map((baseId) => ({
+        tipo: "base_reabilitada",
+        descricao: `Base ${allBases.find((base) => base.id === baseId)?.nome ?? ""} reabilitada pela base ${requestedBase.nome}.`,
+        municipioId: requestedBase.municipioId,
+        baseId,
+        data,
+        usuario,
+      })));
+    }
+
+    if (plan.moduleIdsToReactivate.length > 0) {
+      await tx
+        .update(baseModules)
+        .set({
+          desabilitadoAt: null,
+          desabilitadoMotivo: null,
+          desabilitadoJustificativa: null,
+          desabilitacaoOrigemBaseId: null,
+        })
+        .where(inArray(baseModules.id, plan.moduleIdsToReactivate));
+      await tx.insert(eventos).values(plan.moduleIdsToReactivate.map((moduleId) => ({
+        tipo: "reabilitado",
+        descricao: `Módulo reabilitado pela base ${requestedBase.nome}; histórico de desabilitação preservado.`,
+        municipioId: requestedBase.municipioId,
+        baseModuleId: moduleId,
+        data,
+        usuario,
+      })));
+    }
+  });
+  await syncPendencias();
   done();
 }
 
@@ -342,10 +493,11 @@ export async function createModulo(fd: FormData) {
     const current = allBases.find((item) => item.id === baseId);
     if (!current) throw new Error("Base não encontrada.");
     const children = allBases.filter((item) => item.baseSuperiorId === baseId);
+    const activeChildren = children.filter((item) => item.situacao === "ativa");
     if (replicar && (current.baseSuperiorId || children.length === 0)) {
       throw new Error("A replicação exige uma base superior com bases inferiores.");
     }
-    const targetIds = [baseId, ...(replicar ? children.map((child) => child.id) : [])];
+    const targetIds = [baseId, ...(replicar ? activeChildren.map((child) => child.id) : [])];
     const existing = await tx.select({ baseId: baseModules.baseId, nome: baseModules.nome }).from(baseModules).where(inArray(baseModules.baseId, targetIds));
     if (existing.some((module) => module.baseId === baseId && norm(module.nome.trim()) === norm(nome.trim()))) {
       throw new Error(MODULO_DUPLICADO_MESSAGE);
@@ -368,7 +520,7 @@ export async function createModulo(fd: FormData) {
       tipo: "modulo_criado", descricao: `Módulo ${nome} criado na base.`, municipioId, baseId, baseModuleId: modulo.id, data: today(), usuario,
     });
     if (replicar) {
-      const missing = basesMissingModule(children, existing, nome);
+      const missing = basesMissingModule(activeChildren, existing, nome);
       if (missing.length > 0) {
         const copies = await tx.insert(baseModules).values(missing.map((child) => ({ baseId: child.id, nome, observacoes }))).returning();
         await tx.insert(eventos).values(copies.map((copy) => ({
@@ -397,6 +549,9 @@ export async function createModulosEmGrupo(fd: FormData) {
   const selectedBases = await db.select().from(bases).where(inArray(bases.id, baseIds));
   if (selectedBases.length !== baseIds.length || selectedBases.some((base) => base.municipioId !== municipioId)) {
     throw new Error("Selecione apenas bases validas deste cliente.");
+  }
+  if (selectedBases.some((base) => base.situacao !== "ativa")) {
+    throw new Error("Não é permitido cadastrar módulos em uma base desabilitada.");
   }
 
   const existingModules = await db.select().from(baseModules).where(inArray(baseModules.baseId, baseIds));
@@ -641,8 +796,6 @@ export async function migracaoModulo(fd: FormData) {
   done();
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
-
 export async function implantacaoModulo(fd: FormData) {
   await requireServerActionPermission();
   const id = req(fd, "id");
@@ -769,7 +922,10 @@ export async function createContrato(fd: FormData) {
   await requireServerActionPermission();
   const municipioId = req(fd, "municipioId");
   await assertClienteOperacional(municipioId);
-  const basesDoCliente = await db.select({ id: bases.id }).from(bases).where(eq(bases.municipioId, municipioId));
+  const basesDoCliente = await db
+    .select({ id: bases.id })
+    .from(bases)
+    .where(and(eq(bases.municipioId, municipioId), eq(bases.situacao, "ativa")));
   if (basesDoCliente.length === 0) {
     throw new Error("O cliente não possui base cadastrada para serem vinculadas ao contrato.");
   }

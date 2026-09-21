@@ -37,6 +37,7 @@ const expectedBaseModuleColumns = [
   "desabilitado_at",
   "desabilitado_motivo",
   "desabilitado_justificativa",
+  "desabilitacao_origem_base_id",
   "created_at",
 ];
 
@@ -94,7 +95,12 @@ const expectedAditivoColumns = [
   "created_at",
 ];
 
-const expectedBaseColumns = ["base_superior_id"];
+const expectedBaseColumns = [
+  "base_superior_id",
+  "desabilitado_at",
+  "desabilitado_motivo",
+  "desabilitacao_origem_base_id",
+];
 
 const expectedEventoColumns = [
   "id",

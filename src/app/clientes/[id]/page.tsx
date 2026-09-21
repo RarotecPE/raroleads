@@ -16,6 +16,7 @@ import {
   propostas,
 } from "@/db/schema";
 import { ContratoForm } from "@/components/contrato-form";
+import { BaseStatusActions } from "@/components/base-status-actions";
 import { SubmitButton } from "@/components/dialog";
 import { ModuloDetailDialog } from "@/components/modulo-detail-dialog";
 import { ModuloGrupoForm } from "@/components/modulo-grupo-form";
@@ -173,10 +174,10 @@ export default async function ClienteDetailPage({
           right={
             !canManage || clienteEncerrado ? null : (
               <div className="flex flex-wrap items-center gap-2">
-                {bs.length > 0 ? (
+                {bs.some((base) => base.situacao === "ativa") ? (
                   <ModuloGrupoForm
                     municipioId={m.id}
-                    bases={bs.map((base) => ({ id: base.id, nome: base.nome, tipo: base.tipo }))}
+                    bases={bs.filter((base) => base.situacao === "ativa").map((base) => ({ id: base.id, nome: base.nome, tipo: base.tipo }))}
                     modulos={mods.map((modulo) => ({ baseId: modulo.baseId, nome: modulo.nome }))}
                   />
                 ) : null}
@@ -206,11 +207,17 @@ export default async function ClienteDetailPage({
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-sm font-bold text-app-foreground">{b.nome}</h3>
                       <Badge tone="muted">{b.tipo}</Badge>
+                      <Badge tone={b.situacao === "ativa" ? "success" : "danger"}>{optLabel(b.situacao)}</Badge>
                       {b.baseSuperiorId ? <Badge tone="primary">Base superior: {baseById.get(b.baseSuperiorId)?.nome ?? "não encontrada"}</Badge> : null}
                       {!b.cnpj ? <Badge tone="warning">Sem CNPJ</Badge> : <span className="text-xs text-app-muted-foreground">{formatCnpj(b.cnpj)}</span>}
                     </div>
                     {canManage && !clienteEncerrado ? (
                     <div className="flex flex-wrap items-center gap-1">
+                      <BaseStatusActions
+                        base={b}
+                        childBaseNames={childBases.map((child) => child.nome)}
+                        moduleCount={mods.filter((modulo) => modulo.baseId === b.id || childBases.some((child) => child.id === modulo.baseId)).length}
+                      />
                       <BaseForm
                         municipioId={m.id}
                         bases={bs}
@@ -221,20 +228,31 @@ export default async function ClienteDetailPage({
                           </button>
                         }
                       />
-                      <ModuloForm
-                        baseId={b.id}
-                        municipioId={m.id}
-                        modulos={bMods.map((modulo) => ({ nome: modulo.nome }))}
-                        hasChildBases={childBases.length > 0}
-                        trigger={
-                          <button type="button" className={btnXsGhost}>
-                            <Plus className="h-3.5 w-3.5" /> Novo módulo
-                          </button>
-                        }
-                      />
+                      {b.situacao === "ativa" ? (
+                        <ModuloForm
+                          baseId={b.id}
+                          municipioId={m.id}
+                          modulos={bMods.map((modulo) => ({ nome: modulo.nome }))}
+                          hasChildBases={childBases.length > 0}
+                          trigger={
+                            <button type="button" className={btnXsGhost}>
+                              <Plus className="h-3.5 w-3.5" /> Novo módulo
+                            </button>
+                          }
+                        />
+                      ) : null}
                     </div>
                     ) : null}
                   </header>
+                  {b.situacao !== "ativa" ? (
+                    <div className="border-b border-app-danger/30 bg-app-danger/5 px-4 py-2 text-xs text-app-danger">
+                      Desabilitada{b.desabilitadoAt ? ` em ${formatDate(b.desabilitadoAt)}` : ""}
+                      {b.desabilitadoMotivo ? ` — ${b.desabilitadoMotivo}` : ""}
+                      {b.desabilitacaoOrigemBaseId && b.desabilitacaoOrigemBaseId !== b.id
+                        ? ` · Desabilitada pela base ${baseById.get(b.desabilitacaoOrigemBaseId)?.nome ?? "superior"}`
+                        : ""}
+                    </div>
+                  ) : null}
                   {b.observacoes ? <p className="whitespace-pre-wrap px-4 py-2 text-sm text-app-muted-foreground">{b.observacoes}</p> : null}
                   {childBases.length > 0 ? (
                     <p className="border-b border-app-border px-4 py-2 text-xs text-app-muted-foreground">
@@ -265,7 +283,7 @@ export default async function ClienteDetailPage({
                                 contratos={contratosVinculados}
                                 responsaveis={rMods}
                                 actions={moduloActionHandlers}
-                                readOnly={!canManage || clienteEncerrado}
+                                readOnly={!canManage || clienteEncerrado || b.situacao !== "ativa"}
                               />
                               <Badge tone={state.tone}>{state.label}</Badge>
                               <div className="ml-auto flex flex-wrap items-center gap-3">
@@ -388,8 +406,8 @@ export default async function ClienteDetailPage({
             !canManage || clienteEncerrado ? null : (
               <ContratoForm
                 municipioId={m.id}
-                bases={bs.map((b) => ({ id: b.id, municipioId: b.municipioId, nome: b.nome, tipo: b.tipo }))}
-                modulos={mods.map((modulo) => ({ id: modulo.id, baseId: modulo.baseId, nome: modulo.nome }))}
+                bases={bs.filter((base) => base.situacao === "ativa").map((b) => ({ id: b.id, municipioId: b.municipioId, nome: b.nome, tipo: b.tipo }))}
+                modulos={mods.filter((modulo) => baseById.get(modulo.baseId)?.situacao === "ativa").map((modulo) => ({ id: modulo.id, baseId: modulo.baseId, nome: modulo.nome }))}
                 occupiedBaseIds={[...occupiedBaseIds(cms, mods)]}
                 trigger={
                   <button type="button" className={btnPrimary}>

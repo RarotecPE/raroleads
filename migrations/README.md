@@ -11,6 +11,8 @@ Esta pasta guarda o historico das alteracoes feitas no banco de dados da aplicac
 
 `015_add_base_superior.sql` adiciona a hierarquia opcional de bases. Ela integra `npm run db:schema` e deixa as bases existentes sem superior.
 
+`016_add_base_desabilitacao.sql` registra a data, o motivo e a origem das desabilitações em cascata de bases e módulos. Ela também integra `npm run db:schema`.
+
 ## Limpeza dos dados de homologacao
 
 O arquivo `014_cleanup_homologacao.sql` e um script manual, destrutivo e destinado

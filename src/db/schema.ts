@@ -39,6 +39,12 @@ export const bases = pgTable("bases", {
   tipo: text("tipo").notNull().default("outros"),
   cnpj: text("cnpj"),
   situacao: text("situacao").notNull().default("ativa"),
+  desabilitadoAt: date("desabilitado_at"),
+  desabilitadoMotivo: text("desabilitado_motivo"),
+  desabilitacaoOrigemBaseId: text("desabilitacao_origem_base_id").references(
+    (): AnyPgColumn => bases.id,
+    { onDelete: "set null" },
+  ),
   observacoes: text("observacoes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -68,6 +74,10 @@ export const baseModules = pgTable("base_modules", {
   desabilitadoAt: date("desabilitado_at"),
   desabilitadoMotivo: text("desabilitado_motivo"),
   desabilitadoJustificativa: text("desabilitado_justificativa"),
+  desabilitacaoOrigemBaseId: text("desabilitacao_origem_base_id").references(
+    () => bases.id,
+    { onDelete: "set null" },
+  ),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -176,6 +176,8 @@ export const EVENTO_TIPOS: Record<string, string> = {
   base_atualizada: "Base atualizada",
   base_vinculada_superior: "Base vinculada à superior",
   base_desvinculada_superior: "Base desvinculada da superior",
+  base_desabilitada: "Base desabilitada",
+  base_reabilitada: "Base reabilitada",
   modulo_criado: "Módulo criado",
   modulo_replicado: "Módulo replicado",
   habilitacao_solicitada: "Habilitação solicitada",
