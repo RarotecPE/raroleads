@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   aditivos,
@@ -62,7 +63,7 @@ async function getReportData() {
     db.select().from(pendencias),
     db.select().from(moduloResponsaveis),
     db.select().from(documentos),
-    db.select().from(propostas),
+    db.select().from(propostas).where(isNull(propostas.excluidaAt)),
     db.select().from(aditivos),
     db.select().from(eventos),
   ]);
@@ -75,6 +76,7 @@ async function getReportData() {
   const modById = new Map(mods.map((m) => [m.id, m]));
   const contratoById = new Map(cs.map((c) => [c.id, c]));
   const propostaById = new Map(props.map((p) => [p.id, p]));
+  const visibleDocs = docs.filter((documento) => !documento.propostaId || propostaById.has(documento.propostaId));
   const aditivoById = new Map(adts.map((a) => [a.id, a]));
   const conSet = contratadoSet(cms);
   const oportunidades = computeOportunidades(ms, bs, mods);
@@ -87,7 +89,7 @@ async function getReportData() {
     cms,
     pends,
     responsaveis,
-    docs,
+    docs: visibleDocs,
     props,
     adts,
     evts,

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
@@ -20,7 +20,7 @@ import { requireServerActionPermission } from "@/lib/auth";
 import { syncPendencias } from "@/lib/domain";
 import { deleteDocumentFile, fileFromFormData, getDocumentFile, MAX_DOCUMENT_SIZE_BYTES, uploadDocumentFile } from "@/lib/document-storage";
 import { isValidEmail } from "@/lib/module-enabled-email";
-import { assertPropostaTransition, assertProposalIdentityUnchanged, assertUniqueProposalScope, canonicalProposalBaseType, canonicalProposalModuleName, PROPOSTA_ESPECIFICIDADES, PROPOSTA_MODALIDADES, selectProposalClientCandidate, type ProposalImmutableIdentity, type PropostaStatus } from "@/lib/proposal";
+import { assertPropostaTransition, assertProposalDeletionAllowed, assertProposalIdentityUnchanged, assertUniqueProposalScope, canonicalProposalBaseType, canonicalProposalModuleName, hasProposalBaseType, PROPOSTA_ESPECIFICIDADES, PROPOSTA_MODALIDADES, requireProposalCancellationReason, selectProposalClientCandidate, type ProposalImmutableIdentity, type PropostaStatus } from "@/lib/proposal";
 import { sendProposalEmail } from "@/lib/proposal-email";
 import { norm } from "@/lib/utils";
 
@@ -41,6 +41,7 @@ type ProposalItemInput = {
   baseId?: string | null;
   nome: string;
   tipo?: string | null;
+  forcarCriacaoDuplicada?: boolean;
   modulos: { baseModuleId?: string | null; nome: string }[];
 };
 
@@ -78,6 +79,7 @@ function parseItems(raw: string): ProposalItemInput[] {
       baseId: typeof item.baseId === "string" ? item.baseId : null,
       nome,
       tipo: typeof item.tipo === "string" ? item.tipo.trim() || null : null,
+      forcarCriacaoDuplicada: item.forcarCriacaoDuplicada === true,
       modulos,
     };
   });
@@ -141,6 +143,19 @@ async function validateProposalForm(fd: FormData, lockedIdentity?: ProposalImmut
         }),
       };
     });
+    let matchingCityClients: (typeof municipios.$inferSelect)[] = [];
+    if (!cliente && codigoIbge) {
+      matchingCityClients = await db.select().from(municipios).where(eq(municipios.codigoIbge, codigoIbge));
+    } else if (!cliente) {
+      const sameUfClients = await db.select().from(municipios).where(sql`lower(${municipios.uf}) = lower(${uf})`);
+      matchingCityClients = sameUfClients.filter((candidate) => norm(candidate.municipio.trim()) === norm(municipioNome.trim()));
+    }
+    if (matchingCityClients.length > 0 && text(fd, "confirmarMunicipioExistente") !== "sim") {
+      throw new Error("Este município já possui cliente cadastrado. Confirme que deseja continuar como município avulso ou use o cliente cadastrado.");
+    }
+    const matchingCityBases = matchingCityClients.length
+      ? await db.select().from(bases).where(inArray(bases.municipioId, matchingCityClients.map((candidate) => candidate.id)))
+      : [];
     if (cliente) {
       const baseIds = items.flatMap((item) => item.baseId ? [item.baseId] : []);
       const registeredBases = baseIds.length ? await db.select().from(bases).where(inArray(bases.id, baseIds)) : [];
@@ -158,9 +173,10 @@ async function validateProposalForm(fd: FormData, lockedIdentity?: ProposalImmut
         : [];
       items = items.map((item) => {
         if (!item.baseId) {
-          if (allClientBases.some((base) => norm(base.nome.trim()) === norm(item.nome.trim()))) throw new Error(`A base ${item.nome} já está cadastrada para este cliente.`);
+          const duplicatedType = hasProposalBaseType(item.tipo, allClientBases);
+          if (duplicatedType && !item.forcarCriacaoDuplicada) throw new Error(`Uma base do tipo ${item.tipo} já está cadastrada para este cliente. Confirme a criação da base duplicada.`);
           if (item.modulos.some((module) => module.baseModuleId)) throw new Error("Uma nova base não pode referenciar módulos de outra base.");
-          return item;
+          return { ...item, forcarCriacaoDuplicada: duplicatedType && item.forcarCriacaoDuplicada === true };
         }
         const base = baseById.get(item.baseId);
         if (!base) throw new Error("Base da proposta não encontrada.");
@@ -168,6 +184,7 @@ async function validateProposalForm(fd: FormData, lockedIdentity?: ProposalImmut
           baseId: base.id,
           nome: base.nome,
           tipo: base.tipo,
+          forcarCriacaoDuplicada: false,
           modulos: item.modulos.map((inputModule) => {
             const proposalModule = inputModule.baseModuleId
               ? moduleById.get(inputModule.baseModuleId)
@@ -178,8 +195,15 @@ async function validateProposalForm(fd: FormData, lockedIdentity?: ProposalImmut
           }),
         };
       });
-    } else if (items.some((item) => item.baseId || item.modulos.some((module) => module.baseModuleId))) {
-      throw new Error("Dados avulsos não podem referenciar cadastros de outro cliente.");
+    } else {
+      if (items.some((item) => item.baseId || item.modulos.some((module) => module.baseModuleId))) {
+        throw new Error("Dados avulsos não podem referenciar cadastros de outro cliente.");
+      }
+      items = items.map((item) => {
+        const duplicatedType = hasProposalBaseType(item.tipo, matchingCityBases);
+        if (duplicatedType && !item.forcarCriacaoDuplicada) throw new Error(`Uma base do tipo ${item.tipo} já está cadastrada para este município. Confirme a criação da base duplicada.`);
+        return { ...item, forcarCriacaoDuplicada: duplicatedType && item.forcarCriacaoDuplicada === true };
+      });
     }
   }
 
@@ -200,7 +224,7 @@ async function validateProposalForm(fd: FormData, lockedIdentity?: ProposalImmut
 async function insertProposalScope(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], proposalId: string, input: ValidatedProposalInput) {
   for (const item of input.items) {
     const proposalBaseId = crypto.randomUUID();
-    await tx.insert(propostaBases).values({ id: proposalBaseId, propostaId: proposalId, baseId: item.baseId, nome: item.nome, tipo: item.tipo });
+    await tx.insert(propostaBases).values({ id: proposalBaseId, propostaId: proposalId, baseId: item.baseId, nome: item.nome, tipo: item.tipo, forcarCriacaoDuplicada: item.forcarCriacaoDuplicada ?? false });
     await tx.insert(propostaModulos).values(item.modulos.map((module) => ({
       propostaBaseId: proposalBaseId,
       baseModuleId: module.baseModuleId,
@@ -248,6 +272,7 @@ export async function atualizarProposta(fd: FormData) {
   await db.transaction(async (tx) => {
     const [proposal] = await tx.select().from(propostas).where(eq(propostas.id, id)).for("update");
     if (!proposal) throw new Error("Proposta não encontrada.");
+    if (proposal.excluidaAt) throw new Error("Proposta não encontrada.");
     if (proposal.situacao !== "solicitada" && proposal.situacao !== "em_retificacao") throw new Error("A proposta não pode ser editada no status atual.");
     await tx.update(propostas).set({
       atividadeConjunta: input.atividadeConjunta,
@@ -271,9 +296,63 @@ export async function atualizarProposta(fd: FormData) {
 }
 
 async function proposalById(id: string) {
-  const [proposal] = await db.select().from(propostas).where(eq(propostas.id, id));
+  const [proposal] = await db.select().from(propostas).where(and(eq(propostas.id, id), isNull(propostas.excluidaAt)));
   if (!proposal) throw new Error("Proposta não encontrada.");
   return proposal;
+}
+
+export async function cancelarProposta(fd: FormData) {
+  const session = await requireServerActionPermission();
+  const id = required(fd, "id");
+  const motivo = requireProposalCancellationReason(text(fd, "motivo"));
+  const usuario = userName(session);
+  await db.transaction(async (tx) => {
+    const [proposal] = await tx.select().from(propostas).where(eq(propostas.id, id)).for("update");
+    if (!proposal || proposal.excluidaAt) throw new Error("Proposta não encontrada.");
+    assertPropostaTransition(proposal.situacao, "cancelada");
+    const canceladaAt = new Date();
+    await tx.update(propostas).set({
+      situacao: "cancelada",
+      canceladaAt,
+      canceladaPor: usuario,
+      cancelamentoMotivo: motivo,
+    }).where(and(eq(propostas.id, id), eq(propostas.situacao, "solicitada"), isNull(propostas.excluidaAt)));
+    await tx.insert(propostaHistorico).values({
+      propostaId: id,
+      acao: "cancelada",
+      statusAnterior: "solicitada",
+      statusNovo: "cancelada",
+      descricao: motivo,
+      usuario,
+    });
+  });
+  revalidatePath(`/propostas/${id}`);
+  revalidatePath("/propostas");
+}
+
+export async function excluirProposta(fd: FormData) {
+  const session = await requireServerActionPermission();
+  const id = required(fd, "id");
+  const usuario = userName(session);
+  await db.transaction(async (tx) => {
+    const [proposal] = await tx.select().from(propostas).where(eq(propostas.id, id)).for("update");
+    if (!proposal) throw new Error("Proposta não encontrada.");
+    assertProposalDeletionAllowed(proposal.situacao, proposal.excluidaAt);
+    const [updated] = await tx.update(propostas).set({ excluidaAt: new Date(), excluidaPor: usuario })
+      .where(and(eq(propostas.id, id), eq(propostas.situacao, "cancelada"), isNull(propostas.excluidaAt)))
+      .returning({ id: propostas.id });
+    if (!updated) throw new Error("A proposta não está mais disponível para exclusão.");
+    await tx.insert(propostaHistorico).values({
+      propostaId: id,
+      acao: "excluida",
+      statusAnterior: "cancelada",
+      statusNovo: "cancelada",
+      descricao: "Proposta removida das telas e preservada para auditoria.",
+      usuario,
+    });
+  });
+  revalidatePath("/propostas");
+  redirect("/propostas");
 }
 
 export async function uploadPropostaDocumento(fd: FormData) {
@@ -291,13 +370,16 @@ export async function uploadPropostaDocumento(fd: FormData) {
     const uploaded = await uploadDocumentFile(file, `proposta-${id}`, documentId);
     storageKey = uploaded.key;
     await db.transaction(async (tx) => {
+      const [updated] = await tx.update(propostas).set({ situacao: "gerada", geradaAt: new Date() })
+        .where(and(eq(propostas.id, id), inArray(propostas.situacao, ["solicitada", "em_retificacao"]), isNull(propostas.excluidaAt)))
+        .returning({ id: propostas.id });
+      if (!updated) throw new Error("A proposta não está mais disponível para geração.");
       await tx.insert(documentos).values({
         id: documentId, municipioId: proposal.municipioId, propostaId: id, tipo: "Proposta",
         nome: text(fd, "nome") ?? uploaded.originalName, storageKey: uploaded.key,
         mimeType: uploaded.contentType, tamanhoBytes: uploaded.size, arquivoNomeOriginal: uploaded.originalName,
         propostaVersao: version,
       });
-      await tx.update(propostas).set({ situacao: "gerada", geradaAt: new Date() }).where(eq(propostas.id, id));
       await tx.insert(propostaHistorico).values({
         propostaId: id, documentoId: documentId, acao: "documento_gerado", statusAnterior: proposal.situacao, statusNovo: "gerada",
         descricao: `Versão ${version} do documento anexada.`, usuario: userName(session),
@@ -305,9 +387,13 @@ export async function uploadPropostaDocumento(fd: FormData) {
     });
   } catch (error) {
     if (storageKey) await deleteDocumentFile(storageKey).catch(() => undefined);
-    await db.insert(propostaHistorico).values({
-      propostaId: id, acao: "falha_documento", statusAnterior: proposal.situacao, statusNovo: proposal.situacao,
-      descricao: `Falha ao anexar documento: ${error instanceof Error ? error.message : "erro desconhecido"}.`, usuario: userName(session),
+    await db.transaction(async (tx) => {
+      const [current] = await tx.select().from(propostas).where(eq(propostas.id, id)).for("update");
+      if (!current || current.excluidaAt || (current.situacao !== "solicitada" && current.situacao !== "em_retificacao")) return;
+      await tx.insert(propostaHistorico).values({
+        propostaId: id, acao: "falha_documento", statusAnterior: current.situacao, statusNovo: current.situacao,
+        descricao: `Falha ao anexar documento: ${error instanceof Error ? error.message : "erro desconhecido"}.`, usuario: userName(session),
+      });
     }).catch(() => undefined);
     throw error;
   }
@@ -458,8 +544,8 @@ async function materializeAcceptedProposal(id: string, usuario: string) {
     for (const proposalBase of proposalBaseRows) {
       let targetBase = proposalBase.baseId ? clientBases.find((base) => base.id === proposalBase.baseId) : undefined;
       if (proposalBase.baseId && !targetBase) throw new Error(`A base vinculada a ${proposalBase.nome} não pertence mais ao cliente.`);
-      if (!targetBase) {
-        targetBase = clientBases.find((base) => norm(base.nome.trim()) === norm(proposalBase.nome.trim()));
+      if (!targetBase && !proposalBase.forcarCriacaoDuplicada) {
+        targetBase = clientBases.find((base) => norm(base.tipo.trim()) === norm((proposalBase.tipo ?? "Outros").trim()));
         if (targetBase) reusedBases += 1;
       }
       if (!targetBase) {
@@ -473,7 +559,7 @@ async function materializeAcceptedProposal(id: string, usuario: string) {
         createdBases += 1;
         await tx.insert(eventos).values({
           tipo: "base_criada_via_proposta",
-          descricao: `Base ${targetBase.nome} criada a partir da proposta aceita.`,
+          descricao: `Base ${targetBase.nome} criada a partir da proposta aceita.${proposalBase.forcarCriacaoDuplicada ? " Criação duplicada confirmada na proposta." : ""}`,
           municipioId,
           baseId: targetBase.id,
           data: today(),

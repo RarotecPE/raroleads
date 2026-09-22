@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { documentos } from "@/db/schema";
+import { documentos, propostas } from "@/db/schema";
 import { hasAuthError, requirePermission } from "@/lib/auth";
 import { canView } from "@/lib/auth-permissions";
 import { getDocumentFile } from "@/lib/document-storage";
@@ -19,6 +19,10 @@ export async function GET(
   const { id } = await params;
   const [documento] = await db.select().from(documentos).where(eq(documentos.id, id));
   if (!documento) return NextResponse.json({ error: "Documento nao encontrado." }, { status: 404 });
+  if (documento.propostaId) {
+    const [proposal] = await db.select({ id: propostas.id }).from(propostas).where(and(eq(propostas.id, documento.propostaId), isNull(propostas.excluidaAt)));
+    if (!proposal) return NextResponse.json({ error: "Documento nao encontrado." }, { status: 404 });
+  }
   if (!documento.storageKey) return NextResponse.json({ error: "Documento sem arquivo armazenado." }, { status: 404 });
 
   const object = await getDocumentFile(documento.storageKey);

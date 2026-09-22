@@ -1,7 +1,7 @@
 import { Download, Eye, FileText, Mail, Paperclip, Pencil, Phone, Plus, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   baseModules,
@@ -63,7 +63,7 @@ export default async function ClienteDetailPage({
     db.select().from(bases).where(eq(bases.municipioId, id)),
     db.select().from(moduloResponsaveis).where(eq(moduloResponsaveis.municipioId, id)),
     db.select().from(contratos).where(eq(contratos.municipioId, id)),
-    db.select().from(propostas).where(eq(propostas.municipioId, id)),
+    db.select().from(propostas).where(and(eq(propostas.municipioId, id), isNull(propostas.excluidaAt))),
     db.select().from(documentos).where(eq(documentos.municipioId, id)),
     db.select().from(eventos).where(eq(eventos.municipioId, id)).orderBy(desc(eventos.data), desc(eventos.createdAt)),
     db.select().from(pendencias).where(eq(pendencias.municipioId, id)),
@@ -91,6 +91,7 @@ export default async function ClienteDetailPage({
   const modById = new Map(mods.map((mo) => [mo.id, mo]));
   const contratoById = new Map(cs.map((c) => [c.id, c]));
   const propostaById = new Map(props.map((p) => [p.id, p]));
+  const visibleDocsList = docsList.filter((documento) => !documento.propostaId || propostaById.has(documento.propostaId));
   const modulosResponsavelOptions = mods.map((mo) => ({
     id: mo.id,
     nome: mo.nome,
@@ -497,10 +498,10 @@ export default async function ClienteDetailPage({
             }
           />
           <div className="flex flex-col gap-2 p-3 sm:p-4">
-            {docsList.length === 0 ? (
+            {visibleDocsList.length === 0 ? (
               <Empty title="Nenhum documento" description="Anexe contratos, propostas, atas e evidências." />
             ) : (
-              docsList.map((d) => (
+              visibleDocsList.map((d) => (
                 <div key={d.id} className="flex items-center justify-between gap-3 rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2.5">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-app-foreground">{d.nome}</p>

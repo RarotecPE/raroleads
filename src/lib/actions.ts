@@ -105,6 +105,12 @@ async function assertPropostaOperacional(propostaId: string) {
   if (!proposta) {
     throw new Error("Proposta nao encontrada.");
   }
+  if (proposta.excluidaAt) {
+    throw new Error("Proposta nao encontrada.");
+  }
+  if (proposta.situacao === "cancelada") {
+    throw new Error("Proposta cancelada nao pode receber alteracoes.");
+  }
   await assertClienteOperacional(proposta.municipioId);
   return proposta;
 }
@@ -1012,6 +1018,7 @@ export async function createDocumento(fd: FormData) {
   const municipioId = req(fd, "municipioId");
   await assertDocumentoContextoOperacional(fd, municipioId);
   const contratoId = str(fd, "contratoId");
+  const propostaId = str(fd, "propostaId");
   if (contratoId) {
     const contrato = await assertContratoOperacional(contratoId);
     if (contrato.municipioId !== municipioId) throw new Error("O contrato deve pertencer ao cliente selecionado.");
@@ -1023,14 +1030,18 @@ export async function createDocumento(fd: FormData) {
   const uploaded = await uploadDocumentFile(arquivo, municipioId, documentoId);
   let inserted = false;
   try {
-    const [row] = await db
-      .insert(documentos)
-      .values({
+    const row = await db.transaction(async (tx) => {
+      if (propostaId) {
+        const [proposal] = await tx.select().from(propostas).where(eq(propostas.id, propostaId)).for("update");
+        if (!proposal || proposal.excluidaAt) throw new Error("Proposta nao encontrada.");
+        if (proposal.situacao === "cancelada") throw new Error("Proposta cancelada nao pode receber alteracoes.");
+      }
+      const [insertedDocument] = await tx.insert(documentos).values({
         id: documentoId,
         municipioId,
         baseId: str(fd, "baseId"),
         baseModuleId: str(fd, "baseModuleId"),
-        propostaId: str(fd, "propostaId"),
+        propostaId,
         contratoId,
         eventoId: str(fd, "eventoId"),
         tipo: documentTypeForContext(contratoId, str(fd, "tipo")),
@@ -1041,8 +1052,9 @@ export async function createDocumento(fd: FormData) {
         tamanhoBytes: uploaded.size,
         arquivoNomeOriginal: uploaded.originalName,
         observacoes: str(fd, "observacoes"),
-      })
-      .returning();
+      }).returning();
+      return insertedDocument;
+    });
     inserted = true;
     await logEvent({ tipo: "documento_anexado", descricao: `Documento anexado: ${row.nome} (${row.tipo}).`, municipioId: row.municipioId, baseId: row.baseId, baseModuleId: row.baseModuleId, contratoId: row.contratoId });
   } finally {

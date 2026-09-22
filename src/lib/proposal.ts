@@ -2,7 +2,7 @@ import { BASE_TIPOS, MODULE_CATALOG } from "@/lib/constants";
 import { norm } from "@/lib/utils";
 
 export const PROPOSTA_MODALIDADES = ["implantacao_sistema", "consultoria"] as const;
-export const PROPOSTA_STATUS = ["solicitada", "gerada", "enviada", "aceita", "recusada", "em_retificacao"] as const;
+export const PROPOSTA_STATUS = ["solicitada", "gerada", "enviada", "aceita", "recusada", "em_retificacao", "cancelada"] as const;
 export const PROPOSTA_ESPECIFICIDADES = ["portal", "sagres", "esocial", "recadastramento"] as const;
 
 export type PropostaStatus = (typeof PROPOSTA_STATUS)[number];
@@ -17,18 +17,30 @@ export type ProposalImmutableIdentity = {
 };
 
 const TRANSITIONS: Record<PropostaStatus, PropostaStatus[]> = {
-  solicitada: ["gerada"],
+  solicitada: ["gerada", "cancelada"],
   gerada: ["enviada", "em_retificacao"],
   enviada: ["aceita", "recusada", "em_retificacao"],
   em_retificacao: ["gerada"],
   aceita: [],
   recusada: [],
+  cancelada: [],
 };
 
 export function assertPropostaTransition(from: string, to: PropostaStatus) {
   if (!PROPOSTA_STATUS.includes(from as PropostaStatus) || !TRANSITIONS[from as PropostaStatus].includes(to)) {
     throw new Error(`Transição de proposta inválida: ${from} → ${to}.`);
   }
+}
+
+export function assertProposalDeletionAllowed(status: string, excluidaAt?: Date | string | null) {
+  if (excluidaAt) throw new Error("A proposta já foi excluída.");
+  if (status !== "cancelada") throw new Error("Somente propostas canceladas podem ser excluídas.");
+}
+
+export function requireProposalCancellationReason(value: string | null | undefined) {
+  const reason = value?.trim();
+  if (!reason) throw new Error("Informe o motivo do cancelamento.");
+  return reason;
 }
 
 export function propostaStatusLabel(status: string) {
@@ -39,6 +51,7 @@ export function propostaStatusLabel(status: string) {
     aceita: "Aceita",
     recusada: "Recusada",
     em_retificacao: "Em retificação",
+    cancelada: "Cancelada",
   } as Record<string, string>)[status] ?? status;
 }
 
@@ -55,6 +68,8 @@ const PROPOSTA_HISTORICO_ACAO_LABELS: Record<string, string> = {
   enviada_manualmente: "Proposta marcada como enviada manualmente",
   cadastros_criados: "Cadastros da proposta criados",
   cadastros_criacao_falhou: "Falha ao criar cadastros da proposta",
+  cancelada: "Proposta cancelada",
+  excluida: "Proposta excluída",
 };
 
 export function propostaHistoricoAcaoLabel(acao: string) {
@@ -68,6 +83,16 @@ export function canonicalProposalModuleName(value: string) {
 export function canonicalProposalBaseType(value: string | null | undefined) {
   if (!value) return null;
   return BASE_TIPOS.find((type) => norm(type) === norm(value.trim())) ?? null;
+}
+
+export function hasProposalBaseType(tipo: string | null | undefined, existingBases: { tipo: string | null }[]) {
+  if (!tipo) return false;
+  return existingBases.some((base) => Boolean(base.tipo) && norm(base.tipo!.trim()) === norm(tipo.trim()));
+}
+
+export function proposalClientsByIbge<T extends { codigoIbge: string | null }>(codigoIbge: string | null | undefined, clients: T[]) {
+  if (!codigoIbge?.trim()) return [];
+  return clients.filter((client) => client.codigoIbge?.trim() === codigoIbge.trim());
 }
 
 export function assertUniqueProposalScope(items: { nome: string; modulos: { nome: string }[] }[]) {

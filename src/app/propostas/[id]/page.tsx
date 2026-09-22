@@ -1,6 +1,6 @@
 import { ArrowLeft, Building2, Download, Eye, FileUp, Mail, Pencil } from "lucide-react";
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { documentos, propostaBases, propostaEspecificidades, propostaHistorico, propostaModulos, propostas } from "@/db/schema";
@@ -8,6 +8,7 @@ import { DialogForm, SubmitButton } from "@/components/dialog";
 import { FileInput } from "@/components/file-input";
 import { ProposalDecisionDialog } from "@/components/proposal-decision-dialog";
 import { ProposalManualSendDialog } from "@/components/proposal-manual-send-dialog";
+import { ProposalCancelDialog, ProposalDeleteDialog } from "@/components/proposal-cancel-delete-dialogs";
 import { Badge, Empty, Field, Panel, PanelHeader, YesNo, btnGhost, btnPrimary, btnXsGhost, inputCls } from "@/components/ui";
 import { enviarProposta, materializarCadastrosProposta, uploadPropostaDocumento } from "@/lib/proposal-actions";
 import { getCurrentSession } from "@/lib/auth";
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function PropostaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [[proposal], proposalBaseRows, proposalModuleRows, specs, docs, history, session] = await Promise.all([
-    db.select().from(propostas).where(eq(propostas.id, id)),
+    db.select().from(propostas).where(and(eq(propostas.id, id), isNull(propostas.excluidaAt))),
     db.select().from(propostaBases).where(eq(propostaBases.propostaId, id)),
     db.select().from(propostaModulos).innerJoin(propostaBases, eq(propostaModulos.propostaBaseId, propostaBases.id)).where(eq(propostaBases.propostaId, id)),
     db.select().from(propostaEspecificidades).where(eq(propostaEspecificidades.propostaId, id)),
@@ -36,7 +37,9 @@ export default async function PropostaDetailPage({ params }: { params: Promise<{
   const canEdit = canManage && (proposal.situacao === "solicitada" || proposal.situacao === "em_retificacao");
 
   return <div className="flex flex-col gap-5">
-    <Panel className="p-4 sm:p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><Link href="/propostas" className="mb-3 inline-flex items-center gap-1 text-xs text-app-muted-foreground hover:text-app-primary"><ArrowLeft className="h-3.5 w-3.5" /> Central de propostas</Link><div className="flex flex-wrap items-center gap-2"><h2 className="text-xl font-bold text-app-foreground">{proposal.clienteNomeSnapshot}</h2><Badge tone={optTone(proposal.situacao)}>{optLabel(proposal.situacao)}</Badge><Badge tone={optTone(proposal.tipo)}>{optLabel(proposal.tipo)}</Badge></div><p className="mt-1 text-sm text-app-muted-foreground">{proposal.municipioNome}/{proposal.uf} · Solicitada em {formatDate(proposal.data)}</p></div>{canEdit ? <Link href={`/propostas/${id}/editar`} className={btnGhost}><Pencil className="h-4 w-4" /> Editar proposta</Link> : null}</div></Panel>
+    <Panel className="p-4 sm:p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><Link href="/propostas" className="mb-3 inline-flex items-center gap-1 text-xs text-app-muted-foreground hover:text-app-primary"><ArrowLeft className="h-3.5 w-3.5" /> Central de propostas</Link><div className="flex flex-wrap items-center gap-2"><h2 className="text-xl font-bold text-app-foreground">{proposal.clienteNomeSnapshot}</h2><Badge tone={optTone(proposal.situacao)}>{optLabel(proposal.situacao)}</Badge><Badge tone={optTone(proposal.tipo)}>{optLabel(proposal.tipo)}</Badge></div><p className="mt-1 text-sm text-app-muted-foreground">{proposal.municipioNome}/{proposal.uf} · Solicitada em {formatDate(proposal.data)}</p></div>{canManage ? <div className="flex flex-wrap gap-2">{canEdit ? <Link href={`/propostas/${id}/editar`} className={btnGhost}><Pencil className="h-4 w-4" /> Editar proposta</Link> : null}{proposal.situacao === "solicitada" ? <ProposalCancelDialog id={id} /> : null}{proposal.situacao === "cancelada" ? <ProposalDeleteDialog id={id} /> : null}</div> : null}</div></Panel>
+
+    {proposal.situacao === "cancelada" ? <Panel className="border-app-danger/40"><PanelHeader title="Proposta cancelada" description="Esta proposta não pode mais ser editada ou processada" /><div className="space-y-1 p-4 text-sm"><p className="text-app-foreground"><span className="font-semibold">Motivo:</span> {proposal.cancelamentoMotivo}</p><p className="text-xs text-app-muted-foreground">Cancelada em {formatDateTime(proposal.canceladaAt)} por {proposal.canceladaPor ?? "Equipe Interna"}.</p></div></Panel> : null}
 
     {canManage && (proposal.situacao === "solicitada" || proposal.situacao === "em_retificacao") ? <Panel><PanelHeader title={proposal.situacao === "em_retificacao" ? "Anexar versão retificada" : "Gerar proposta"} description="O documento será preservado como uma versão da proposta" /><DialogForm action={uploadPropostaDocumento} className="p-4"><input type="hidden" name="id" value={id} /><div className="grid gap-4 sm:grid-cols-2"><Field label="Nome do documento"><input name="nome" className={inputCls} placeholder="Proposta comercial" /></Field><Field label="Arquivo" hint="Documentos e imagens até 20 MB"><FileInput name="arquivo" required /></Field></div><div className="flex justify-end"><SubmitButton className={btnPrimary}><FileUp className="h-4 w-4" /> Anexar e marcar como gerada</SubmitButton></div></DialogForm></Panel> : null}
 

@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ProposalRequestForm, type ProposalFormInitialData } from "@/components/proposal-request-form";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function EditarPropostaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [[proposal], proposalBaseRows, especificidades, clientes, baseRows, moduleRows, contractedRows, session] = await Promise.all([
-    db.select().from(propostas).where(eq(propostas.id, id)),
+    db.select().from(propostas).where(and(eq(propostas.id, id), isNull(propostas.excluidaAt))),
     db.select().from(propostaBases).where(eq(propostaBases.propostaId, id)),
     db.select().from(propostaEspecificidades).where(eq(propostaEspecificidades.propostaId, id)),
     db.select().from(municipios),
@@ -45,9 +45,10 @@ export default async function EditarPropostaPage({ params }: { params: Promise<{
       baseId: base.baseId,
       nome: base.nome,
       tipo: base.tipo,
+      forcarCriacaoDuplicada: base.forcarCriacaoDuplicada,
       modulos: proposalModuleRows.filter((module) => module.propostaBaseId === base.id).map((module) => ({ baseModuleId: module.baseModuleId, nome: module.nome })),
     })),
   };
 
-  return <div className="flex flex-col gap-5"><Panel><PanelHeader title="Editar proposta" description="Atualize os dados e o escopo antes de gerar a próxima versão" right={<Link href={`/propostas/${id}`} className={btnGhost}><ArrowLeft className="h-4 w-4" /> Voltar</Link>} /><div className="p-4 sm:p-5"><ProposalRequestForm initialData={initialData} clientes={clientes.filter((client) => client.situacao !== "cliente_encerrado").map((client) => ({ id: client.id, nome: client.clienteNome, municipio: client.municipio, uf: client.uf }))} bases={baseRows.map((base) => ({ id: base.id, municipioId: base.municipioId, nome: base.nome, tipo: base.tipo }))} modulos={moduleRows.map((module) => ({ id: module.id, baseId: module.baseId, nome: module.nome }))} contractedModuleIds={[...new Set(contractedRows.map((row) => row.baseModuleId))]} /></div></Panel></div>;
+  return <div className="flex flex-col gap-5"><Panel><PanelHeader title="Editar proposta" description="Atualize os dados e o escopo antes de gerar a próxima versão" right={<Link href={`/propostas/${id}`} className={btnGhost}><ArrowLeft className="h-4 w-4" /> Voltar</Link>} /><div className="p-4 sm:p-5"><ProposalRequestForm initialData={initialData} clientes={clientes.map((client) => ({ id: client.id, nome: client.clienteNome, municipio: client.municipio, uf: client.uf, codigoIbge: client.codigoIbge, situacao: client.situacao }))} bases={baseRows.map((base) => ({ id: base.id, municipioId: base.municipioId, nome: base.nome, tipo: base.tipo }))} modulos={moduleRows.map((module) => ({ id: module.id, baseId: module.baseId, nome: module.nome }))} contractedModuleIds={[...new Set(contractedRows.map((row) => row.baseModuleId))]} /></div></Panel></div>;
 }

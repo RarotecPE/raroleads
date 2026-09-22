@@ -115,6 +115,11 @@ export const propostas = pgTable("propostas", {
   geradaAt: timestamp("gerada_at"),
   enviadaAt: timestamp("enviada_at"),
   decisaoAt: timestamp("decisao_at"),
+  canceladaAt: timestamp("cancelada_at"),
+  canceladaPor: text("cancelada_por"),
+  cancelamentoMotivo: text("cancelamento_motivo"),
+  excluidaAt: timestamp("excluida_at"),
+  excluidaPor: text("excluida_por"),
   basesEnvolvidas: text("bases_envolvidas"),
   modulosEnvolvidos: text("modulos_envolvidos"),
   observacoes: text("observacoes"),
@@ -127,6 +132,7 @@ export const propostaBases = pgTable("proposta_bases", {
   baseId: text("base_id").references(() => bases.id, { onDelete: "set null" }),
   nome: text("nome").notNull(),
   tipo: text("tipo"),
+  forcarCriacaoDuplicada: boolean("forcar_criacao_duplicada").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -15,6 +15,10 @@ Esta pasta guarda o historico das alteracoes feitas no banco de dados da aplicac
 
 `017_create_central_propostas.sql` cria o ciclo comercial de propostas, itens estruturados, documentos versionados e histórico dedicado. Ela integra `npm run db:schema` e normaliza propostas legadas.
 
+`018_add_proposta_base_duplicidade.sql` preserva a confirmação explícita para criar uma base de tipo já cadastrado durante a conversão de uma proposta. Ela integra `npm run db:schema`.
+
+`019_add_proposta_cancelamento_exclusao.sql` registra cancelamento e exclusão lógica de propostas, preservando seus dados para auditoria. Ela integra `npm run db:schema`.
+
 ## Limpeza dos dados de homologacao
 
 O arquivo `014_cleanup_homologacao.sql` e um script manual, destrutivo e destinado

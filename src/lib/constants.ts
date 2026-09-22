@@ -64,6 +64,7 @@ export const PROPOSTA_SITUACOES: Option[] = [
   { value: "aceita", label: "Aceita", tone: "success" },
   { value: "recusada", label: "Recusada", tone: "danger" },
   { value: "em_retificacao", label: "Em retificação", tone: "warning" },
+  { value: "cancelada", label: "Cancelada", tone: "danger" },
 ];
 
 export const PROPOSTA_ESPECIFICIDADES: Option[] = [

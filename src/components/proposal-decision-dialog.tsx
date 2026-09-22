@@ -3,7 +3,7 @@
 import { ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
-import { Field, btnDanger, btnGhost, btnPrimary, btnXs, textareaCls } from "@/components/ui";
+import { Field, btnGhost, btnPrimary, btnXs, textareaCls } from "@/components/ui";
 import { decidirProposta } from "@/lib/proposal-actions";
 
 type DecisionStatus = "aceita" | "recusada" | "em_retificacao";
@@ -24,13 +24,16 @@ export function ProposalDecisionDialog({ id, status, canCreateRecords = false }:
   const [reason, setReason] = useState("");
   const asksForCreation = status === "aceita" && canCreateRecords;
 
-  return <Dialog title={config.title} trigger={<button type="button" className={status === "recusada" ? btnDanger : btnXs}>{config.icon}{config.title}</button>}>
+  return <Dialog title={config.title} trigger={<button type="button" className={btnXs}>{config.icon}{config.title}</button>}>
     <DialogForm action={decidirProposta}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="status" value={status} />
       {!confirmCreation ? <>
-        <Field label={config.reasonRequired ? "Motivo" : "Observação"}><textarea name="motivo" value={reason} onChange={(event) => setReason(event.target.value)} required={config.reasonRequired} rows={3} className={textareaCls} /></Field>
-        <div className="flex justify-end"><button type={asksForCreation ? "button" : "submit"} onClick={asksForCreation ? () => setConfirmCreation(true) : undefined} className={status === "recusada" ? btnDanger : btnPrimary}>Confirmar</button></div>
+        {status === "aceita" ? <div className="rounded-app-md border border-app-primary/40 bg-app-primary/10 p-4">
+          <p className="font-semibold text-app-foreground">Confirma o aceite desta proposta?</p>
+          <p className="mt-1 text-sm text-app-muted-foreground">Após ser aceita, a proposta ficará bloqueada para edição e não poderá retornar às etapas anteriores.</p>
+        </div> : <Field label="Motivo"><textarea name="motivo" value={reason} onChange={(event) => setReason(event.target.value)} required={config.reasonRequired} rows={3} className={textareaCls} /></Field>}
+        <div className="flex justify-end"><button type={asksForCreation ? "button" : "submit"} onClick={asksForCreation ? () => setConfirmCreation(true) : undefined} className={btnPrimary}>Confirmar</button></div>
       </> : <div className="space-y-4">
         <input type="hidden" name="motivo" value={reason} />
         <div className="rounded-app-md border border-app-primary/40 bg-app-primary/10 p-4">

@@ -73,6 +73,8 @@ function dashboardDatabaseError(health: Exclude<DatabaseHealth, { ok: true }>, s
               <p>Colunas documentos: {health.missingDocumentoColumns.length ? health.missingDocumentoColumns.join(", ") : "ok"}</p>
               <p>Colunas aditivos: {health.missingAditivoColumns.length ? health.missingAditivoColumns.join(", ") : "ok"}</p>
               <p>Colunas eventos: {health.missingEventoColumns.length ? health.missingEventoColumns.join(", ") : "ok"}</p>
+              <p>Colunas proposta_bases: {health.missingPropostaBaseColumns.length ? health.missingPropostaBaseColumns.join(", ") : "ok"}</p>
+              <p>Colunas propostas: {health.missingPropostaColumns.length ? health.missingPropostaColumns.join(", ") : "ok"}</p>
             </div>
           </div>
         ) : (

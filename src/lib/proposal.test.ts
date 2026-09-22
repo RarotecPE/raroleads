@@ -1,15 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertPropostaTransition, assertProposalIdentityUnchanged, assertUniqueProposalScope, canonicalProposalBaseType, canonicalProposalModuleName, hideProposalIds, parseProposalOriginNote, propostaHistoricoAcaoLabel, selectProposalClientCandidate } from "./proposal";
+import { assertPropostaTransition, assertProposalDeletionAllowed, assertProposalIdentityUnchanged, assertUniqueProposalScope, canonicalProposalBaseType, canonicalProposalModuleName, hasProposalBaseType, hideProposalIds, parseProposalOriginNote, propostaHistoricoAcaoLabel, proposalClientsByIbge, requireProposalCancellationReason, selectProposalClientCandidate } from "./proposal";
 
 test("aceita somente transições orientadas pelas ações da proposta", () => {
   assert.doesNotThrow(() => assertPropostaTransition("solicitada", "gerada"));
+  assert.doesNotThrow(() => assertPropostaTransition("solicitada", "cancelada"));
   assert.doesNotThrow(() => assertPropostaTransition("gerada", "enviada"));
   assert.doesNotThrow(() => assertPropostaTransition("gerada", "em_retificacao"));
   assert.doesNotThrow(() => assertPropostaTransition("enviada", "em_retificacao"));
   assert.doesNotThrow(() => assertPropostaTransition("em_retificacao", "gerada"));
   assert.throws(() => assertPropostaTransition("solicitada", "aceita"), /inválida/);
   assert.throws(() => assertPropostaTransition("aceita", "gerada"), /inválida/);
+  for (const status of ["gerada", "enviada", "aceita", "recusada", "em_retificacao", "cancelada"]) {
+    assert.throws(() => assertPropostaTransition(status, "cancelada"), /inválida/);
+  }
+});
+
+test("permite excluir somente proposta cancelada ainda não excluída", () => {
+  assert.doesNotThrow(() => assertProposalDeletionAllowed("cancelada", null));
+  assert.throws(() => assertProposalDeletionAllowed("solicitada", null), /Somente propostas canceladas/);
+  assert.throws(() => assertProposalDeletionAllowed("cancelada", new Date()), /já foi excluída/);
+});
+
+test("exige motivo preenchido para cancelar a proposta", () => {
+  assert.equal(requireProposalCancellationReason("  Mudança de prioridade  "), "Mudança de prioridade");
+  assert.throws(() => requireProposalCancellationReason("   "), /motivo do cancelamento/);
+  assert.throws(() => requireProposalCancellationReason(null), /motivo do cancelamento/);
 });
 
 test("traduz eventos do histórico e preserva eventos desconhecidos", () => {
@@ -25,6 +41,8 @@ test("traduz eventos do histórico e preserva eventos desconhecidos", () => {
   assert.equal(propostaHistoricoAcaoLabel("enviada_manualmente"), "Proposta marcada como enviada manualmente");
   assert.equal(propostaHistoricoAcaoLabel("cadastros_criados"), "Cadastros da proposta criados");
   assert.equal(propostaHistoricoAcaoLabel("cadastros_criacao_falhou"), "Falha ao criar cadastros da proposta");
+  assert.equal(propostaHistoricoAcaoLabel("cancelada"), "Proposta cancelada");
+  assert.equal(propostaHistoricoAcaoLabel("excluida"), "Proposta excluída");
   assert.equal(propostaHistoricoAcaoLabel("evento_futuro"), "evento_futuro");
 });
 
@@ -33,6 +51,25 @@ test("normaliza apenas módulos e tipos disponíveis no catálogo", () => {
   assert.equal(canonicalProposalModuleName("módulo inventado"), null);
   assert.equal(canonicalProposalBaseType(" saude "), "Saúde");
   assert.equal(canonicalProposalBaseType("tipo inventado"), null);
+});
+
+test("identifica duplicidade de base exclusivamente pelo tipo normalizado", () => {
+  const bases = [{ tipo: "Saúde" }, { tipo: "Prefeitura" }];
+  assert.equal(hasProposalBaseType(" saude ", bases), true);
+  assert.equal(hasProposalBaseType("Saúde", [{ tipo: "Saúde" }]), true);
+  assert.equal(hasProposalBaseType("Câmara", bases), false);
+  assert.equal(hasProposalBaseType(null, bases), false);
+});
+
+test("localiza clientes cadastrados pelo código IBGE", () => {
+  const clients = [
+    { id: "carpina-1", codigoIbge: "2604007" },
+    { id: "carpina-2", codigoIbge: "2604007" },
+    { id: "recife", codigoIbge: "2611606" },
+    { id: "sem-codigo", codigoIbge: null },
+  ];
+  assert.deepEqual(proposalClientsByIbge("2604007", clients).map((client) => client.id), ["carpina-1", "carpina-2"]);
+  assert.deepEqual(proposalClientsByIbge("", clients), []);
 });
 
 test("rejeita bases e módulos duplicados no escopo", () => {
