@@ -51,6 +51,14 @@ export default async function ClientesPage({
           description="Cadastro principal dos clientes e seus municipios vinculados"
           right={canManage ? (
             <ClienteForm
+              existingClients={ms.map((client) => ({
+                id: client.id,
+                clienteNome: client.clienteNome,
+                municipio: client.municipio,
+                uf: client.uf,
+                codigoIbge: client.codigoIbge,
+                situacao: client.situacao,
+              }))}
               trigger={
                 <button type="button" className={btnPrimary}>
                   <Plus className="h-4 w-4" /> Novo cliente

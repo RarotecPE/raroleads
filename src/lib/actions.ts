@@ -17,6 +17,7 @@ import {
 import { requireServerActionPermission } from "@/lib/auth";
 import { planBaseDisable, planBaseReactivation } from "@/lib/base-disable";
 import { cnpjDigits } from "@/lib/cnpj";
+import { assertClientMunicipalityUnchanged, findDuplicateMunicipalityClients } from "@/lib/client-municipality";
 import { basesMissingModule, parseNewChildBases, validateChildBaseLinks } from "@/lib/base-hierarchy";
 import {
   optLabel,
@@ -191,13 +192,20 @@ export async function createMunicipio(fd: FormData) {
   await requireServerActionPermission();
   const clienteNome = req(fd, "clienteNome");
   const municipio = req(fd, "municipio");
+  const uf = req(fd, "uf").toUpperCase().slice(0, 2);
+  const codigoIbge = str(fd, "codigoIbge");
+  const existingClients = await db.select().from(municipios);
+  const duplicates = findDuplicateMunicipalityClients({ municipio, uf, codigoIbge }, existingClients);
+  if (duplicates.length > 0 && str(fd, "confirmarMunicipioDuplicado") !== "sim") {
+    throw new Error("Este município já está cadastrado. Confirme que deseja continuar com a criação.");
+  }
   const [row] = await db
     .insert(municipios)
     .values({
       clienteNome,
       municipio,
-      uf: req(fd, "uf").toUpperCase().slice(0, 2),
-      codigoIbge: str(fd, "codigoIbge"),
+      uf,
+      codigoIbge,
       populacao: int(fd, "populacao"),
       situacao: str(fd, "situacao") ?? "prospect",
       dadosAdministrativos: str(fd, "dadosAdministrativos"),
@@ -216,11 +224,17 @@ export async function updateMunicipio(fd: FormData) {
   if (!before) {
     throw new Error("Cliente nao encontrado.");
   }
-  const next = {
-    clienteNome: req(fd, "clienteNome"),
+  const submittedIdentity = {
     municipio: req(fd, "municipio"),
     uf: req(fd, "uf").toUpperCase().slice(0, 2),
     codigoIbge: str(fd, "codigoIbge"),
+  };
+  assertClientMunicipalityUnchanged(before, submittedIdentity);
+  const next = {
+    clienteNome: req(fd, "clienteNome"),
+    municipio: before.municipio,
+    uf: before.uf,
+    codigoIbge: before.codigoIbge,
     populacao: int(fd, "populacao"),
     situacao: str(fd, "situacao") ?? "prospect",
     dadosAdministrativos: str(fd, "dadosAdministrativos"),

@@ -1,10 +1,12 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Dialog, DialogForm, SubmitButton } from "@/components/dialog";
 import { Field, btnPrimary, inputCls, selectCls, textareaCls } from "@/components/ui";
 import { createMunicipio, updateMunicipio } from "@/lib/actions";
-import { MUNICIPIO_SITUACOES } from "@/lib/constants";
+import { findDuplicateMunicipalityClients } from "@/lib/client-municipality";
+import { MUNICIPIO_SITUACOES, optLabel } from "@/lib/constants";
 
 interface UfOption {
   id: number;
@@ -24,6 +26,15 @@ interface MunicipioDetalhe {
   populacao: number | null;
 }
 
+interface ExistingClient {
+  id: string;
+  clienteNome: string;
+  municipio: string;
+  uf: string;
+  codigoIbge: string | null;
+  situacao: string;
+}
+
 const FALLBACK_UFS: UfOption[] = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
@@ -32,8 +43,10 @@ const FALLBACK_UFS: UfOption[] = [
 export function ClienteForm({
   trigger,
   cliente,
+  existingClients = [],
 }: {
   trigger: ReactNode;
+  existingClients?: ExistingClient[];
   cliente?: {
     id: string;
     clienteNome: string;
@@ -55,11 +68,16 @@ export function ClienteForm({
   const [loadingMunicipios, setLoadingMunicipios] = useState(false);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
   const [ibgeError, setIbgeError] = useState<string | null>(null);
+  const [confirmedDuplicate, setConfirmedDuplicate] = useState(false);
 
   const municipioOptions = useMemo(() => {
     if (!codigoIbge || municipios.some((municipio) => municipio.id === codigoIbge)) return municipios;
     return [{ id: codigoIbge, nome: municipioNome || codigoIbge }, ...municipios];
   }, [codigoIbge, municipioNome, municipios]);
+  const duplicateClients = useMemo(() => {
+    if (cliente || !municipioNome || !uf) return [];
+    return findDuplicateMunicipalityClients({ municipio: municipioNome, uf, codigoIbge: codigoIbge || null }, existingClients);
+  }, [cliente, codigoIbge, existingClients, municipioNome, uf]);
 
   useEffect(() => {
     let active = true;
@@ -116,6 +134,7 @@ export function ClienteForm({
   }, [uf]);
 
   function loadMunicipioDetalhe(nextCodigoIbge: string) {
+    setConfirmedDuplicate(false);
     setCodigoIbge(nextCodigoIbge);
     const option = municipioOptions.find((municipio) => municipio.id === nextCodigoIbge);
     if (option) setMunicipioNome(option.nome);
@@ -159,7 +178,9 @@ export function ClienteForm({
           <Field label="Nome do cliente" className="sm:col-span-3">
             <input name="clienteNome" required defaultValue={cliente?.clienteNome ?? ""} className={inputCls} placeholder="Ex.: Prefeitura Municipal de Tacaratu" />
           </Field>
-          <Field label="UF">
+          {cliente ? <Field label="UF">
+            <input readOnly value={uf} className={inputCls} />
+          </Field> : <Field label="UF">
             <select
               required
               value={uf}
@@ -169,6 +190,7 @@ export function ClienteForm({
                 setCodigoIbge("");
                 setMunicipioNome("");
                 setPopulacao("");
+                setConfirmedDuplicate(false);
               }}
             >
               {ufs.map((item) => (
@@ -177,8 +199,10 @@ export function ClienteForm({
                 </option>
               ))}
             </select>
-          </Field>
-          <Field label="Municipio" className="sm:col-span-2">
+          </Field>}
+          {cliente ? <Field label="Municipio" className="sm:col-span-2">
+            <input readOnly value={municipioNome} className={inputCls} />
+          </Field> : <Field label="Municipio" className="sm:col-span-2">
             <select
               required
               value={codigoIbge}
@@ -191,7 +215,7 @@ export function ClienteForm({
                 <option key={municipio.id} value={municipio.id}>{municipio.nome}</option>
               ))}
             </select>
-          </Field>
+          </Field>}
           <Field label="Codigo IBGE">
             <input readOnly value={codigoIbge} className={inputCls} />
           </Field>
@@ -215,6 +239,20 @@ export function ClienteForm({
             </select>
           </Field>
         </div>
+        {duplicateClients.length > 0 ? <div className="flex gap-2 rounded-app-md border border-app-warning/40 bg-app-warning/10 p-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-app-warning" aria-hidden="true" />
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="font-semibold text-app-foreground">Este município já está cadastrado.</p>
+              <p className="mt-1 text-app-muted-foreground">{duplicateClients.map((item) => `${item.clienteNome} · ${optLabel(item.situacao)}`).join("; ")}</p>
+            </div>
+            <label className="flex cursor-pointer items-start gap-2 font-semibold text-app-foreground">
+              <input type="checkbox" checked={confirmedDuplicate} onChange={(event) => setConfirmedDuplicate(event.target.checked)} className="mt-0.5 accent-app-primary" />
+              Desejo continuar com a criação
+            </label>
+          </div>
+        </div> : null}
+        {confirmedDuplicate ? <input type="hidden" name="confirmarMunicipioDuplicado" value="sim" /> : null}
         {ibgeError ? <p className="text-xs font-medium text-app-warning">{ibgeError}</p> : null}
         <Field label="Dados administrativos">
           <textarea name="dadosAdministrativos" rows={2} defaultValue={cliente?.dadosAdministrativos ?? ""} className={textareaCls} placeholder="Prefeito(a), contatos, gestao vigente..." />
@@ -223,7 +261,7 @@ export function ClienteForm({
           <textarea name="observacoes" rows={2} defaultValue={cliente?.observacoes ?? ""} className={textareaCls} />
         </Field>
         <div className="flex justify-end">
-          <SubmitButton className={btnPrimary}>{cliente ? "Salvar alteracoes" : "Cadastrar cliente"}</SubmitButton>
+          <SubmitButton className={btnPrimary} disabled={duplicateClients.length > 0 && !confirmedDuplicate}>{cliente ? "Salvar alteracoes" : "Cadastrar cliente"}</SubmitButton>
         </div>
       </DialogForm>
     </Dialog>
