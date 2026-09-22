@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
@@ -20,7 +20,7 @@ import { requireServerActionPermission } from "@/lib/auth";
 import { syncPendencias } from "@/lib/domain";
 import { deleteDocumentFile, fileFromFormData, getDocumentFile, MAX_DOCUMENT_SIZE_BYTES, uploadDocumentFile } from "@/lib/document-storage";
 import { isValidEmail } from "@/lib/module-enabled-email";
-import { assertPropostaTransition, assertUniqueProposalScope, canonicalProposalBaseType, canonicalProposalModuleName, PROPOSTA_ESPECIFICIDADES, PROPOSTA_MODALIDADES, type PropostaStatus } from "@/lib/proposal";
+import { assertPropostaTransition, assertProposalIdentityUnchanged, assertUniqueProposalScope, canonicalProposalBaseType, canonicalProposalModuleName, PROPOSTA_ESPECIFICIDADES, PROPOSTA_MODALIDADES, selectProposalClientCandidate, type ProposalImmutableIdentity, type PropostaStatus } from "@/lib/proposal";
 import { sendProposalEmail } from "@/lib/proposal-email";
 import { norm } from "@/lib/utils";
 
@@ -42,6 +42,19 @@ type ProposalItemInput = {
   nome: string;
   tipo?: string | null;
   modulos: { baseModuleId?: string | null; nome: string }[];
+};
+
+type ValidatedProposalInput = {
+  tipo: (typeof PROPOSTA_MODALIDADES)[number];
+  municipioId: string | null;
+  clienteNomeSnapshot: string;
+  municipioNome: string;
+  uf: string;
+  codigoIbge: string | null;
+  atividadeConjunta: boolean | null;
+  items: ProposalItemInput[];
+  especificidades: string[];
+  observacoes: string | null;
 };
 
 function parseItems(raw: string): ProposalItemInput[] {
@@ -72,20 +85,29 @@ function parseItems(raw: string): ProposalItemInput[] {
   return items;
 }
 
-export async function createProposta(fd: FormData) {
-  const session = await requireServerActionPermission();
-  const tipo = required(fd, "tipo");
-  if (!PROPOSTA_MODALIDADES.includes(tipo as (typeof PROPOSTA_MODALIDADES)[number])) throw new Error("Modalidade de proposta inválida.");
-
-  const municipioId = text(fd, "municipioId");
+async function validateProposalForm(fd: FormData, lockedIdentity?: ProposalImmutableIdentity): Promise<ValidatedProposalInput> {
+  const submittedTipo = required(fd, "tipo");
+  if (!PROPOSTA_MODALIDADES.includes(submittedTipo as (typeof PROPOSTA_MODALIDADES)[number])) throw new Error("Modalidade de proposta inválida.");
+  if (lockedIdentity) {
+    assertProposalIdentityUnchanged(lockedIdentity, {
+      tipo: submittedTipo,
+      municipioId: text(fd, "municipioId"),
+      clienteNomeSnapshot: required(fd, "clienteNomeSnapshot"),
+      municipioNome: required(fd, "municipioNome"),
+      uf: required(fd, "uf"),
+      codigoIbge: text(fd, "codigoIbge"),
+    });
+  }
+  const tipo = lockedIdentity?.tipo ?? submittedTipo;
+  const municipioId = lockedIdentity?.municipioId ?? text(fd, "municipioId");
   const cliente = municipioId ? (await db.select().from(municipios).where(eq(municipios.id, municipioId)))[0] : null;
   if (municipioId && !cliente) throw new Error("Cliente não encontrado.");
   if (cliente?.situacao === "cliente_encerrado") throw new Error("Cliente encerrado não pode receber uma nova proposta.");
 
-  let clienteNomeSnapshot = cliente?.clienteNome ?? required(fd, "clienteNomeSnapshot");
-  let municipioNome = cliente?.municipio ?? required(fd, "municipioNome");
-  let uf = cliente?.uf ?? required(fd, "uf").toUpperCase().slice(0, 2);
-  let codigoIbge = cliente?.codigoIbge ?? text(fd, "codigoIbge");
+  const clienteNomeSnapshot = lockedIdentity?.clienteNomeSnapshot ?? cliente?.clienteNome ?? required(fd, "clienteNomeSnapshot");
+  const municipioNome = lockedIdentity?.municipioNome ?? cliente?.municipio ?? required(fd, "municipioNome");
+  const uf = lockedIdentity?.uf ?? cliente?.uf ?? required(fd, "uf").toUpperCase().slice(0, 2);
+  const codigoIbge = lockedIdentity ? lockedIdentity.codigoIbge : cliente?.codigoIbge ?? text(fd, "codigoIbge");
   let atividadeConjunta: boolean | null = null;
   let items: ProposalItemInput[];
   let especificidades: string[] = [];
@@ -161,38 +183,91 @@ export async function createProposta(fd: FormData) {
     }
   }
 
+  return {
+    tipo: tipo as ValidatedProposalInput["tipo"],
+    municipioId,
+    clienteNomeSnapshot,
+    municipioNome,
+    uf,
+    codigoIbge,
+    atividadeConjunta,
+    items,
+    especificidades,
+    observacoes: text(fd, "observacoes"),
+  };
+}
+
+async function insertProposalScope(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], proposalId: string, input: ValidatedProposalInput) {
+  for (const item of input.items) {
+    const proposalBaseId = crypto.randomUUID();
+    await tx.insert(propostaBases).values({ id: proposalBaseId, propostaId: proposalId, baseId: item.baseId, nome: item.nome, tipo: item.tipo });
+    await tx.insert(propostaModulos).values(item.modulos.map((module) => ({
+      propostaBaseId: proposalBaseId,
+      baseModuleId: module.baseModuleId,
+      nome: module.nome,
+    })));
+  }
+  if (input.especificidades.length) await tx.insert(propostaEspecificidades).values(input.especificidades.map((especificidade) => ({ propostaId: proposalId, especificidade })));
+}
+
+export async function createProposta(fd: FormData) {
+  const session = await requireServerActionPermission();
+  const input = await validateProposalForm(fd);
+
   const proposalId = crypto.randomUUID();
   await db.transaction(async (tx) => {
     await tx.insert(propostas).values({
       id: proposalId,
-      municipioId,
-      tipo,
+      municipioId: input.municipioId,
+      tipo: input.tipo,
       data: today(),
       situacao: "solicitada",
-      clienteNomeSnapshot,
-      municipioNome,
-      uf,
-      codigoIbge,
-      atividadeConjunta,
-      observacoes: text(fd, "observacoes"),
+      clienteNomeSnapshot: input.clienteNomeSnapshot,
+      municipioNome: input.municipioNome,
+      uf: input.uf,
+      codigoIbge: input.codigoIbge,
+      atividadeConjunta: input.atividadeConjunta,
+      observacoes: input.observacoes,
     });
-    for (const item of items) {
-      const proposalBaseId = crypto.randomUUID();
-      await tx.insert(propostaBases).values({ id: proposalBaseId, propostaId: proposalId, baseId: item.baseId, nome: item.nome, tipo: item.tipo });
-      await tx.insert(propostaModulos).values(item.modulos.map((module) => ({
-        propostaBaseId: proposalBaseId,
-        baseModuleId: module.baseModuleId,
-        nome: module.nome,
-      })));
-    }
-    if (especificidades.length) await tx.insert(propostaEspecificidades).values(especificidades.map((especificidade) => ({ propostaId: proposalId, especificidade })));
+    await insertProposalScope(tx, proposalId, input);
     await tx.insert(propostaHistorico).values({
       propostaId: proposalId, acao: "solicitada", statusNovo: "solicitada",
-      descricao: `Proposta de ${tipo === "consultoria" ? "consultoria" : "implantação do sistema"} solicitada.`, usuario: userName(session),
+      descricao: `Proposta de ${input.tipo === "consultoria" ? "consultoria" : "implantação do sistema"} solicitada.`, usuario: userName(session),
     });
   });
   revalidatePath("/propostas");
   redirect(`/propostas/${proposalId}`);
+}
+
+export async function atualizarProposta(fd: FormData) {
+  const session = await requireServerActionPermission();
+  const id = required(fd, "id");
+  const original = await proposalById(id);
+  if (original.situacao !== "solicitada" && original.situacao !== "em_retificacao") throw new Error("A proposta não pode ser editada no status atual.");
+  const input = await validateProposalForm(fd, original);
+  await db.transaction(async (tx) => {
+    const [proposal] = await tx.select().from(propostas).where(eq(propostas.id, id)).for("update");
+    if (!proposal) throw new Error("Proposta não encontrada.");
+    if (proposal.situacao !== "solicitada" && proposal.situacao !== "em_retificacao") throw new Error("A proposta não pode ser editada no status atual.");
+    await tx.update(propostas).set({
+      atividadeConjunta: input.atividadeConjunta,
+      observacoes: input.observacoes,
+    }).where(eq(propostas.id, id));
+    await tx.delete(propostaEspecificidades).where(eq(propostaEspecificidades.propostaId, id));
+    await tx.delete(propostaBases).where(eq(propostaBases.propostaId, id));
+    await insertProposalScope(tx, id, input);
+    await tx.insert(propostaHistorico).values({
+      propostaId: id,
+      acao: "editada",
+      statusAnterior: proposal.situacao,
+      statusNovo: proposal.situacao,
+      descricao: "Dados e escopo da proposta atualizados.",
+      usuario: userName(session),
+    });
+  });
+  revalidatePath(`/propostas/${id}`);
+  revalidatePath("/propostas");
+  redirect(`/propostas/${id}`);
 }
 
 async function proposalById(id: string) {
@@ -284,21 +359,94 @@ export async function enviarProposta(fd: FormData) {
   revalidatePath("/propostas");
 }
 
+export async function marcarPropostaEnviada(fd: FormData) {
+  const session = await requireServerActionPermission();
+  const id = required(fd, "id");
+  const proposal = await proposalById(id);
+  assertPropostaTransition(proposal.situacao, "enviada");
+  const [document] = await db.select({ id: documentos.id }).from(documentos).where(eq(documentos.propostaId, id)).limit(1);
+  if (!document) throw new Error("A proposta não possui documento gerado.");
+  await db.transaction(async (tx) => {
+    const [updated] = await tx.update(propostas).set({ situacao: "enviada", enviadaAt: new Date() }).where(and(eq(propostas.id, id), eq(propostas.situacao, "gerada"))).returning({ id: propostas.id });
+    if (!updated) throw new Error("A proposta não está mais disponível para envio.");
+    await tx.insert(propostaHistorico).values({
+      propostaId: id,
+      acao: "enviada_manualmente",
+      statusAnterior: "gerada",
+      statusNovo: "enviada",
+      descricao: "Proposta marcada como enviada manualmente; o documento pode ter sido encaminhado por outro meio.",
+      usuario: userName(session),
+    });
+  });
+  revalidatePath(`/propostas/${id}`);
+  revalidatePath("/propostas");
+}
+
 async function materializeAcceptedProposal(id: string, usuario: string) {
   return db.transaction(async (tx) => {
     const [proposal] = await tx.select().from(propostas).where(eq(propostas.id, id)).for("update");
     if (!proposal) throw new Error("Proposta não encontrada.");
     if (proposal.situacao !== "aceita") throw new Error("Somente propostas aceitas podem gerar cadastros.");
-    if (!proposal.municipioId) throw new Error("A proposta não está vinculada a um cliente cadastrado.");
 
     const proposalBaseRows = await tx.select().from(propostaBases).where(eq(propostaBases.propostaId, id)).orderBy(propostaBases.id).for("update");
     const proposalModuleRows = proposalBaseRows.length
       ? await tx.select().from(propostaModulos).where(inArray(propostaModulos.propostaBaseId, proposalBaseRows.map((base) => base.id))).orderBy(propostaModulos.id).for("update")
       : [];
     const hadPendingItems = proposalBaseRows.some((base) => !base.baseId) || proposalModuleRows.some((module) => !module.baseModuleId);
-    if (!hadPendingItems) return { changed: false, createdBases: 0, createdModules: 0, reusedBases: 0, reusedModules: 0 };
+    if (proposal.municipioId && !hadPendingItems) return { changed: false, municipioId: proposal.municipioId, createdClient: false, createdBases: 0, createdModules: 0, reusedBases: 0, reusedModules: 0 };
 
-    const clientBases = await tx.select().from(bases).where(eq(bases.municipioId, proposal.municipioId)).orderBy(bases.id).for("update");
+    let client: typeof municipios.$inferSelect | undefined;
+    let createdClient = false;
+    if (proposal.municipioId) {
+      [client] = await tx.select().from(municipios).where(eq(municipios.id, proposal.municipioId)).for("update");
+      if (!client) throw new Error("O cliente vinculado à proposta não foi encontrado.");
+    } else {
+      const clientMatchKey = proposal.codigoIbge ?? `${proposal.uf}:${norm(proposal.municipioNome.trim())}`;
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`proposta-cliente:${clientMatchKey}`}))`);
+      let candidates: (typeof municipios.$inferSelect)[];
+      if (proposal.codigoIbge) {
+        candidates = await tx.select().from(municipios).where(eq(municipios.codigoIbge, proposal.codigoIbge)).orderBy(municipios.id).for("update");
+      } else {
+        const sameUf = await tx.select().from(municipios).where(sql`lower(${municipios.uf}) = lower(${proposal.uf})`).orderBy(municipios.id).for("update");
+        candidates = sameUf.filter((item) => norm(item.municipio.trim()) === norm(proposal.municipioNome.trim()));
+      }
+      client = selectProposalClientCandidate(candidates) ?? undefined;
+      if (!client) {
+        [client] = await tx.insert(municipios).values({
+          clienteNome: proposal.clienteNomeSnapshot,
+          municipio: proposal.municipioNome,
+          uf: proposal.uf,
+          codigoIbge: proposal.codigoIbge,
+          situacao: "em_negociacao",
+          observacoes: `Cliente criado automaticamente a partir da proposta aceita ${proposal.id}.`,
+        }).returning();
+        createdClient = true;
+        await tx.insert(eventos).values({
+          tipo: "cliente_criado_via_proposta",
+          descricao: `Cliente ${client.clienteNome} criado a partir da proposta aceita.`,
+          municipioId: client.id,
+          data: today(),
+          usuario,
+        });
+      }
+      await tx.update(propostas).set({ municipioId: client.id }).where(eq(propostas.id, id));
+    }
+    if (client.situacao === "cliente_encerrado") throw new Error("Cliente encerrado não pode receber bases ou módulos.");
+    const municipioId = client.id;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`proposta-materializacao:${municipioId}`}))`);
+
+    const linkedDocuments = await tx.update(documentos).set({ municipioId }).where(eq(documentos.propostaId, id)).returning({ id: documentos.id });
+    if (linkedDocuments.length > 0) {
+      await tx.insert(eventos).values({
+        tipo: "documentos_proposta_vinculados",
+        descricao: `${linkedDocuments.length} versão(ões) do documento da proposta vinculada(s) ao cliente.`,
+        municipioId,
+        data: today(),
+        usuario,
+      });
+    }
+
+    const clientBases = await tx.select().from(bases).where(eq(bases.municipioId, municipioId)).orderBy(bases.id).for("update");
     const clientModules = clientBases.length
       ? await tx.select().from(baseModules).where(inArray(baseModules.baseId, clientBases.map((base) => base.id))).orderBy(baseModules.id).for("update")
       : [];
@@ -316,7 +464,7 @@ async function materializeAcceptedProposal(id: string, usuario: string) {
       }
       if (!targetBase) {
         [targetBase] = await tx.insert(bases).values({
-          municipioId: proposal.municipioId,
+          municipioId,
           nome: proposalBase.nome,
           tipo: proposalBase.tipo ?? "Outros",
           situacao: "ativa",
@@ -324,9 +472,9 @@ async function materializeAcceptedProposal(id: string, usuario: string) {
         clientBases.push(targetBase);
         createdBases += 1;
         await tx.insert(eventos).values({
-          tipo: "base_criada",
-          descricao: `Base ${targetBase.nome} criada a partir da proposta aceita ${proposal.id}.`,
-          municipioId: proposal.municipioId,
+          tipo: "base_criada_via_proposta",
+          descricao: `Base ${targetBase.nome} criada a partir da proposta aceita.`,
+          municipioId,
           baseId: targetBase.id,
           data: today(),
           usuario,
@@ -346,9 +494,9 @@ async function materializeAcceptedProposal(id: string, usuario: string) {
           clientModules.push(targetModule);
           createdModules += 1;
           await tx.insert(eventos).values({
-            tipo: "modulo_criado",
-            descricao: `Módulo ${targetModule.nome} criado a partir da proposta aceita ${proposal.id}.`,
-            municipioId: proposal.municipioId,
+            tipo: "modulo_criado_via_proposta",
+            descricao: `Módulo ${targetModule.nome} criado a partir da proposta aceita.`,
+            municipioId,
             baseId: targetBase.id,
             baseModuleId: targetModule.id,
             data: today(),
@@ -364,10 +512,10 @@ async function materializeAcceptedProposal(id: string, usuario: string) {
       acao: "cadastros_criados",
       statusAnterior: "aceita",
       statusNovo: "aceita",
-      descricao: `${createdBases} base(s) e ${createdModules} módulo(s) criados; ${reusedBases} base(s) e ${reusedModules} módulo(s) existentes reutilizados.`,
+      descricao: `${createdClient ? "Cliente criado; " : "Cliente existente reutilizado; "}${createdBases} base(s) e ${createdModules} módulo(s) criados; ${reusedBases} base(s) e ${reusedModules} módulo(s) existentes reutilizados; ${linkedDocuments.length} documento(s) vinculado(s).`,
       usuario,
     });
-    return { changed: true, createdBases, createdModules, reusedBases, reusedModules };
+    return { changed: true, municipioId, createdClient, createdBases, createdModules, reusedBases, reusedModules };
   });
 }
 
@@ -388,6 +536,7 @@ export async function materializarCadastrosProposta(fd: FormData) {
   try {
     const result = await materializeAcceptedProposal(id, userName(session));
     if (result.changed) await syncPendencias();
+    revalidatePath(`/clientes/${result.municipioId}`);
   } catch (error) {
     await recordMaterializationFailure(id, userName(session), error);
     revalidatePath(`/propostas/${id}`);
@@ -413,10 +562,11 @@ export async function decidirProposta(fd: FormData) {
       descricao: motivo ?? "Proposta aceita.", usuario: userName(session),
     });
   });
-  if (status === "aceita" && proposal.municipioId && text(fd, "criarCadastros") === "sim") {
+  if (status === "aceita" && text(fd, "criarCadastros") === "sim") {
     try {
       const result = await materializeAcceptedProposal(id, userName(session));
       if (result.changed) await syncPendencias();
+      revalidatePath(`/clientes/${result.municipioId}`);
     } catch (error) {
       await recordMaterializationFailure(id, userName(session), error);
     }

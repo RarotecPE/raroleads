@@ -176,14 +176,18 @@ export const PENDENCIA_TIPOS: Record<string, { label: string; tone: Tone }> = {
 
 export const EVENTO_TIPOS: Record<string, string> = {
   municipio_criado: "Cliente criado",
+  cliente_criado_via_proposta: "Cliente criado via proposta",
   municipio_atualizado: "Cliente atualizado",
   base_criada: "Base criada",
+  base_criada_via_proposta: "Base criada via proposta",
   base_atualizada: "Base atualizada",
   base_vinculada_superior: "Base vinculada à superior",
   base_desvinculada_superior: "Base desvinculada da superior",
   base_desabilitada: "Base desabilitada",
   base_reabilitada: "Base reabilitada",
   modulo_criado: "Módulo criado",
+  modulo_criado_via_proposta: "Módulo criado via proposta",
+  documentos_proposta_vinculados: "Documentos da proposta vinculados",
   modulo_replicado: "Módulo replicado",
   habilitacao_solicitada: "Habilitação solicitada",
   habilitado: "Módulo habilitado",

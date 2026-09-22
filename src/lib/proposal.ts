@@ -1,12 +1,24 @@
+import { BASE_TIPOS, MODULE_CATALOG } from "@/lib/constants";
+import { norm } from "@/lib/utils";
+
 export const PROPOSTA_MODALIDADES = ["implantacao_sistema", "consultoria"] as const;
 export const PROPOSTA_STATUS = ["solicitada", "gerada", "enviada", "aceita", "recusada", "em_retificacao"] as const;
 export const PROPOSTA_ESPECIFICIDADES = ["portal", "sagres", "esocial", "recadastramento"] as const;
 
 export type PropostaStatus = (typeof PROPOSTA_STATUS)[number];
 
+export type ProposalImmutableIdentity = {
+  tipo: string;
+  municipioId: string | null;
+  clienteNomeSnapshot: string;
+  municipioNome: string;
+  uf: string;
+  codigoIbge: string | null;
+};
+
 const TRANSITIONS: Record<PropostaStatus, PropostaStatus[]> = {
   solicitada: ["gerada"],
-  gerada: ["enviada"],
+  gerada: ["enviada", "em_retificacao"],
   enviada: ["aceita", "recusada", "em_retificacao"],
   em_retificacao: ["gerada"],
   aceita: [],
@@ -39,6 +51,8 @@ const PROPOSTA_HISTORICO_ACAO_LABELS: Record<string, string> = {
   aceita: "Proposta aceita",
   recusada: "Proposta recusada",
   em_retificacao: "Proposta em retificação",
+  editada: "Proposta editada",
+  enviada_manualmente: "Proposta marcada como enviada manualmente",
   cadastros_criados: "Cadastros da proposta criados",
   cadastros_criacao_falhou: "Falha ao criar cadastros da proposta",
 };
@@ -64,5 +78,37 @@ export function assertUniqueProposalScope(items: { nome: string; modulos: { nome
     if (new Set(moduleNames).size !== moduleNames.length) throw new Error(`O módulo foi repetido na base ${item.nome}.`);
   }
 }
-import { BASE_TIPOS, MODULE_CATALOG } from "@/lib/constants";
-import { norm } from "@/lib/utils";
+
+export function selectProposalClientCandidate<T extends { situacao: string }>(candidates: T[]) {
+  if (candidates.length > 1) throw new Error("Há mais de um cliente correspondente ao município da proposta.");
+  const [candidate] = candidates;
+  if (candidate?.situacao === "cliente_encerrado") throw new Error("O cliente correspondente está encerrado.");
+  return candidate ?? null;
+}
+
+export function assertProposalIdentityUnchanged(current: ProposalImmutableIdentity, submitted: ProposalImmutableIdentity) {
+  const unchanged = current.tipo === submitted.tipo
+    && current.municipioId === submitted.municipioId
+    && current.clienteNomeSnapshot === submitted.clienteNomeSnapshot
+    && current.municipioNome === submitted.municipioNome
+    && current.uf === submitted.uf
+    && current.codigoIbge === submitted.codigoIbge;
+  if (!unchanged) throw new Error("Cliente e modalidade da proposta não podem ser alterados.");
+}
+
+const PROPOSAL_UUID_SOURCE = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+
+export function parseProposalOriginNote(value: string) {
+  const match = value.match(new RegExp(`^(.*?)(proposta)( aceita)\\s+(${PROPOSAL_UUID_SOURCE})(.*)$`, "i"));
+  if (!match) return null;
+  return {
+    before: match[1],
+    label: match[2],
+    after: `${match[3]}${match[5]}`,
+    proposalId: match[4],
+  };
+}
+
+export function hideProposalIds(value: string) {
+  return value.replace(new RegExp(`(\\bproposta(?:\\s+aceita)?)\\s+${PROPOSAL_UUID_SOURCE}(?=[\\s.,;:!?]|$)`, "gi"), "$1");
+}

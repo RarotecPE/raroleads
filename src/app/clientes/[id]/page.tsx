@@ -43,6 +43,7 @@ import { formatPhone } from "@/lib/phone";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { isDocumentViewable } from "@/lib/document-view";
 import { getCurrentSession } from "@/lib/auth";
+import { hideProposalIds, parseProposalOriginNote } from "@/lib/proposal";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,7 @@ export default async function ClienteDetailPage({
   ]);
   const [m] = municipioRows;
   if (!m) notFound();
+  const proposalOriginNote = m.observacoes ? parseProposalOriginNote(m.observacoes) : null;
 
   const baseIds = bs.map((b) => b.id);
   const mods = baseIds.length ? await db.select().from(baseModules).where(inArray(baseModules.baseId, baseIds)) : [];
@@ -132,7 +134,7 @@ export default async function ClienteDetailPage({
               <p className="mt-2 max-w-2xl text-sm text-app-muted-foreground">{m.dadosAdministrativos}</p>
             ) : null}
             {m.observacoes ? (
-              <p className="mt-1 max-w-2xl text-sm text-app-muted-foreground">{m.observacoes}</p>
+              <p className="mt-1 max-w-2xl text-sm text-app-muted-foreground">{proposalOriginNote ? <>{proposalOriginNote.before}<Link href={`/propostas/${encodeURIComponent(proposalOriginNote.proposalId)}`} className="font-semibold text-app-primary hover:underline">{proposalOriginNote.label}</Link>{proposalOriginNote.after}</> : m.observacoes}</p>
             ) : null}
           </div>
           {canManage ? <ClienteForm
@@ -585,7 +587,7 @@ export default async function ClienteDetailPage({
                       <p className="text-xs font-semibold text-app-muted-foreground">
                         {formatDate(e.data)} · {EVENTO_TIPOS[e.tipo] ?? e.tipo}
                       </p>
-                      <p className="mt-0.5 text-sm text-app-foreground">{e.descricao}</p>
+                      <p className="mt-0.5 text-sm text-app-foreground">{hideProposalIds(e.descricao)}</p>
                       <p className="mt-0.5 text-[11px] text-app-muted-foreground">
                         Registrado por {e.usuario}
                         {eventBase ? ` · Base ${eventBase.nome}` : ""}

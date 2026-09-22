@@ -34,8 +34,8 @@ export function ProposalDecisionDialog({ id, status, canCreateRecords = false }:
       </> : <div className="space-y-4">
         <input type="hidden" name="motivo" value={reason} />
         <div className="rounded-app-md border border-app-primary/40 bg-app-primary/10 p-4">
-          <p className="font-semibold text-app-foreground">Deseja criar agora as bases e os módulos vinculados à proposta?</p>
-          <p className="mt-1 text-sm text-app-muted-foreground">Os cadastros serão criados com os dados disponíveis. CNPJ e responsáveis poderão ser preenchidos depois na área de clientes.</p>
+          <p className="font-semibold text-app-foreground">Deseja criar agora o cliente, as bases e os módulos vinculados à proposta?</p>
+          <p className="mt-1 text-sm text-app-muted-foreground">Cadastros existentes serão reutilizados e somente os itens ausentes serão criados. CNPJ e responsáveis poderão ser preenchidos depois na área de clientes.</p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" className={btnGhost} onClick={() => setConfirmCreation(false)}>Voltar</button>
