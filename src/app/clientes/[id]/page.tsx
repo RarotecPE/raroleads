@@ -16,6 +16,7 @@ import {
   propostas,
 } from "@/db/schema";
 import { ContratoForm } from "@/components/contrato-form";
+import { DocumentShareButton } from "@/components/document-share-button";
 import { BaseStatusActions } from "@/components/base-status-actions";
 import { SubmitButton } from "@/components/dialog";
 import { ModuloDetailDialog } from "@/components/modulo-detail-dialog";
@@ -531,6 +532,7 @@ export default async function ClienteDetailPage({
                         <Link href={`/api/documentos/${d.id}/download`} className={btnXsGhost} title="Baixar documento" aria-label={`Baixar ${d.nome}`}>
                           <Download className="h-3.5 w-3.5" /> Baixar
                         </Link>
+                        <DocumentShareButton documentId={d.id} fileName={d.arquivoNomeOriginal ?? d.nome} mimeType={d.mimeType} />
                       </>
                     ) : null}
                   </div>

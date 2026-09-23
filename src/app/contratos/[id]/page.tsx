@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { DocumentShareButton } from "@/components/document-share-button";
 import { baseModules, bases, contratoModulos, contratos, documentos, eventos, municipios } from "@/db/schema";
 import { DocumentoForm } from "@/components/registry-forms";
 import { DesvincularBaseContratoForm } from "@/components/desvincular-base-contrato-form";
@@ -143,6 +144,7 @@ export default async function ContratoDetailPage({ params }: { params: Promise<{
                     <Link href={`/api/documentos/${doc.id}/download`} className={btnXsGhost} aria-label={`Baixar ${doc.nome}`}>
                       <Download className="h-3.5 w-3.5" /> Baixar
                     </Link>
+                    <DocumentShareButton documentId={doc.id} fileName={doc.arquivoNomeOriginal ?? doc.nome} mimeType={doc.mimeType} />
                   </>
                 ) : null}
               </div>
