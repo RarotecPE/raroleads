@@ -1,22 +1,22 @@
 "use client";
 
 import { LoaderCircle, Share2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { OperationLoadingTracker } from "@/components/operation-loading";
 import { btnXsGhost } from "@/components/ui";
 import { isDocumentShareCancellation, shareDocumentFile, supportsDocumentFileSharing, type DocumentShareApi } from "@/lib/document-share";
+
+const subscribeToShareSupport = () => () => undefined;
+const getServerShareSupport = () => false;
+const getShareSupport = () => supportsDocumentFileSharing(navigator);
 
 export function DocumentShareButton({ documentId, fileName, mimeType }: {
   documentId: string;
   fileName: string;
   mimeType?: string | null;
 }) {
-  const [supported, setSupported] = useState(false);
+  const supported = useSyncExternalStore(subscribeToShareSupport, getShareSupport, getServerShareSupport);
   const [sharing, setSharing] = useState(false);
-
-  useEffect(() => {
-    setSupported(supportsDocumentFileSharing(navigator));
-  }, []);
 
   if (!supported) return null;
 

@@ -48,7 +48,7 @@ export default async function ClientesPage({
       <Panel>
         <PanelHeader
           title="Clientes"
-          description="Cadastro principal dos clientes e seus municipios vinculados"
+          description="Cadastro principal dos clientes e seus municípios vinculados"
           right={canManage ? (
             <ClienteForm
               existingClients={ms.map((client) => ({

@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   Ban,
   Building2,
-  FileText,
   Layers,
   LayoutGrid,
   Puzzle,
@@ -20,16 +19,25 @@ import {
   pendencias,
 } from "@/db/schema";
 import { Badge, Empty, Panel, PanelHeader, Stat } from "@/components/ui";
-import { PENDENCIA_TIPOS } from "@/lib/constants";
+import { MUNICIPIO_SITUACOES, PENDENCIA_TIPOS, optLabel, optTone } from "@/lib/constants";
 import { isOperationalPendingType } from "@/lib/contract-reference";
 import {
   computeOportunidades,
   contratadoSet,
   syncPendencias,
 } from "@/lib/domain";
-import { groupBy } from "@/lib/utils";
+import { computeActiveModuleCatalogTotals } from "@/lib/module-totals";
+import { countBy, groupBy } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+function Row({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-app-md border border-app-border bg-app-surface-elevated/40 px-3 py-2 text-sm">
+      {children}
+    </div>
+  );
+}
 
 function dashboardDatabaseError(health: Exclude<DatabaseHealth, { ok: true }>, syncError?: unknown) {
   const title = health.status === "connection_error" ? "Banco de dados inacessivel" : "Schema do banco incompleto";
@@ -137,11 +145,21 @@ export default async function DashboardPage() {
   ]);
 
   const conSet = contratadoSet(cms);
+  const ativos = ms.filter((m) => m.situacao === "cliente_ativo");
+  const porSituacao = countBy(ms, (m) => m.situacao);
+  const semContrato = ms.filter((m) => !cs.some((c) => c.municipioId === m.id));
+  const basesSemFormalizacao = bs.filter(
+    (b) => !mods.some((modulo) => modulo.baseId === b.id && conSet.has(modulo.id)),
+  );
+  const contratados = mods.filter((m) => conSet.has(m.id));
+  const modulosPorCatalogo = computeActiveModuleCatalogTotals(ms, bs, mods);
   const habSemContrato = mods.filter((m) => m.habilitadoAt && !m.desabilitadoAt && !conSet.has(m.id)).length;
   const naoHabilitados = mods.filter((m) => conSet.has(m.id) && !m.habilitadoAt && !m.desabilitadoAt).length;
   const abertas = pends.filter((p) => p.situacao === "aberta" && isOperationalPendingType(p.tipo));
   const oportunidades = computeOportunidades(ms, bs, mods);
   const pendsPorTipo = groupBy(abertas, (p) => p.tipo);
+  const pendsPorMun = countBy(abertas.filter((p) => p.municipioId), (p) => p.municipioId!);
+  const munById = new Map(ms.map((m) => [m.id, m]));
 
   return (
     <div className="flex flex-col gap-5">
@@ -150,14 +168,120 @@ export default async function DashboardPage() {
         <Stat label="Clientes" value={ms.length} icon={<Building2 className="h-4 w-4" />} tone="primary" />
         <Stat label="Bases" value={bs.length} icon={<Layers className="h-4 w-4" />} tone="primary" />
         <Stat label="Módulos" value={mods.length} icon={<Puzzle className="h-4 w-4" />} tone="primary" />
-        <Stat label="Contratos" value={cs.length} icon={<FileText className="h-4 w-4" />} tone="success" />
-        <Stat label="Clientes com contrato" value={new Set(cs.map((c) => c.municipioId)).size} icon={<FileText className="h-4 w-4" />} tone="primary" />
         <Stat label="Habilitados sem contrato" value={habSemContrato} icon={<Ban className="h-4 w-4" />} tone="danger" />
         <Stat label="Contratados não habilitados" value={naoHabilitados} icon={<LayoutGrid className="h-4 w-4" />} tone="warning" />
         <Stat label="Pendências abertas" value={abertas.length} icon={<AlertTriangle className="h-4 w-4" />} tone="warning" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <Panel>
+          <PanelHeader title="Clientes por situação" description={`${ativos.length} cliente(s) ativo(s) de ${ms.length}`} />
+          <div className="flex flex-col gap-2 p-3 sm:p-4">
+            {MUNICIPIO_SITUACOES.map((situacao) => (
+              <Row key={situacao.value}>
+                <span className="text-app-foreground">{situacao.label}</span>
+                <Badge tone={situacao.tone}>{porSituacao.get(situacao.value) ?? 0}</Badge>
+              </Row>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader title="Clientes sem contrato" />
+          <div className="flex flex-col gap-2 p-3 sm:p-4">
+            {semContrato.length === 0 ? (
+              <Empty title="Todos possuem contrato cadastrado" />
+            ) : (
+              semContrato.map((municipio) => (
+                <Row key={municipio.id}>
+                  <Link
+                    href={`/clientes/${municipio.id}`}
+                    className="font-semibold text-app-foreground hover:text-app-primary hover:underline"
+                  >
+                    {municipio.clienteNome}{" "}
+                    <span className="text-xs font-normal text-app-muted-foreground">
+                      {municipio.municipio} - {municipio.uf}
+                    </span>
+                  </Link>
+                  <Badge tone={optTone(municipio.situacao)}>{optLabel(municipio.situacao)}</Badge>
+                </Row>
+              ))
+            )}
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader title="Bases sem cobertura contratual" description="Bases sem módulo vinculado a contrato" />
+          <div className="flex flex-col gap-2 p-3 sm:p-4">
+            {basesSemFormalizacao.length === 0 ? (
+              <Empty title="Todas as bases possuem módulo contemplado" />
+            ) : (
+              basesSemFormalizacao.map((base) => (
+                <Row key={base.id}>
+                  <span className="text-app-foreground">
+                    {base.nome}{" "}
+                    <span className="text-xs text-app-muted-foreground">
+                      · {munById.get(base.municipioId)?.clienteNome}
+                    </span>
+                  </span>
+                  <Badge tone="warning">{base.tipo}</Badge>
+                </Row>
+              ))
+            )}
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader title="Módulos" description="Cadastros ativos por módulo do catálogo" />
+          <div className="flex flex-col gap-2 p-3 sm:p-4">
+            {modulosPorCatalogo.map((modulo) => (
+              <Row key={modulo.nome}>
+                <span className="text-app-foreground">{modulo.nome}</span>
+                <Badge tone="primary">{modulo.total}</Badge>
+              </Row>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader title="Contratos" description="Totalizadores de cobertura contratual" />
+          <div className="flex flex-col gap-2 p-3 sm:p-4">
+            <Row>
+              <span className="text-app-foreground">Cadastrados</span>
+              <Badge tone="success">{cs.length}</Badge>
+            </Row>
+            <Row>
+              <span className="text-app-foreground">Clientes com contrato</span>
+              <Badge tone="primary">{new Set(cs.map((contrato) => contrato.municipioId)).size}</Badge>
+            </Row>
+            <Row>
+              <span className="text-app-foreground">Módulos contemplados</span>
+              <Badge tone="primary">{contratados.length}</Badge>
+            </Row>
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader title="Pendências por cliente" description={`${abertas.length} aberta(s) no total`} />
+          <div className="flex flex-col gap-2 p-3 sm:p-4">
+            {pendsPorMun.size === 0 ? (
+              <Empty title="Nenhuma pendência aberta" />
+            ) : (
+              [...pendsPorMun.entries()].map(([municipioId, total]) => (
+                <Row key={municipioId}>
+                  <Link
+                    href={`/clientes/${municipioId}`}
+                    className="font-semibold text-app-foreground hover:text-app-primary hover:underline"
+                  >
+                    {munById.get(municipioId)?.clienteNome ?? "-"}
+                  </Link>
+                  <Badge tone="warning">{total} aberta(s)</Badge>
+                </Row>
+              ))
+            )}
+          </div>
+        </Panel>
+
         {/* Pendências */}
         <Panel>
           <PanelHeader

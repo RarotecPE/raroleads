@@ -171,7 +171,7 @@ export default async function ClienteDetailPage({
       {/* Bases e módulos */}
       <Panel>
         <PanelHeader
-          title="Bases e módulos"
+          title="Bases e Módulos"
           description="Contratar ≠ habilitar ≠ executar — cada estado é controlado separadamente"
           right={
             !canManage || clienteEncerrado ? null : (
