@@ -8,7 +8,7 @@ type DocumentFetcher = (input: string, init?: RequestInit) => Promise<Response>;
 export function supportsDocumentFileSharing(api: Partial<DocumentShareApi> | null | undefined) {
   if (typeof api?.share !== "function" || typeof api.canShare !== "function" || typeof File === "undefined") return false;
   try {
-    return api.canShare({ files: [new File([""], "raroleads-share-test.txt", { type: "text/plain" })] });
+    return api.canShare({ files: [new File([""], "raroclients-share-test.txt", { type: "text/plain" })] });
   } catch {
     return false;
   }
@@ -42,7 +42,7 @@ export async function shareDocumentFile({
   const shareData: ShareData = {
     files: [file],
     title: fileName,
-    text: "Documento compartilhado pelo RaroLeads.",
+    text: "Documento compartilhado pelo Raroclients.",
   };
   if (!api.canShare(shareData)) throw new Error("Este dispositivo não permite compartilhar este tipo de documento.");
   await api.share(shareData);

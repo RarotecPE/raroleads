@@ -87,7 +87,7 @@ function LoginContent() {
         <div className="mb-6">
           <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-app-lg bg-white p-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
+            <img src="/raroclients-logo.jpeg" alt="Raroclients" className="h-full w-full object-contain" />
           </div>
           <p className="text-xs font-semibold uppercase text-app-muted-foreground">{APP.shortName}</p>
           <h1 className="mt-2 text-2xl font-bold text-app-foreground">Entrar no {APP.name}</h1>

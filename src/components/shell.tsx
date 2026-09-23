@@ -51,11 +51,11 @@ export function Shell({ children }: { children: ReactNode }) {
         >
           <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-app-md bg-white p-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
+            <img src="/raroclients-logo.jpeg" alt="Raroclients" className="h-full w-full object-contain" />
           </span>
           <div className="leading-tight">
             <span className="block text-xl font-bold tracking-tight text-white">
-                  Raro<span className="text-blue-400">Leads</span>
+                  Raro<span className="text-blue-400">Clients</span>
             </span>
             <p className="text-[11px] text-app-muted-foreground">Gestão de clientes</p>
           </div>
@@ -98,7 +98,7 @@ export function Shell({ children }: { children: ReactNode }) {
             className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-app-md bg-white p-1 transition-opacity hover:opacity-85 lg:hidden"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/raroleads-logo.jpeg" alt="RaroLeads" className="h-full w-full object-contain" />
+            <img src="/raroclients-logo.jpeg" alt="Raroclients" className="h-full w-full object-contain" />
           </Link>
           <div className="leading-tight">
             <p className="text-[11px] font-semibold text-app-muted-foreground lg:hidden">{APP.name}</p>

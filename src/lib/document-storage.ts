@@ -61,6 +61,10 @@ export interface StoredDocument {
   size: number;
 }
 
+export function documentStoragePrefix() {
+  return process.env.R2_BASE_PREFIX?.trim().replace(/^\/+|\/+$/g, "") || "raroclients";
+}
+
 function r2Config() {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
@@ -117,7 +121,7 @@ export async function uploadDocumentFile(file: File, municipioId: string, docume
   const { bucket, client } = r2Config();
   const originalName = file.name || "arquivo";
   const contentType = file.type || "application/octet-stream";
-  const key = `raroleads/${municipioId}/${documentId}-${sanitizeFileName(originalName)}`;
+  const key = `${documentStoragePrefix()}/${municipioId}/${documentId}-${sanitizeFileName(originalName)}`;
   const body = Buffer.from(await file.arrayBuffer());
 
   await client.send(new PutObjectCommand({

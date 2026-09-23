@@ -5,7 +5,7 @@ config({ path: ".env.local", quiet: true, override: true });
 config({ quiet: true });
 
 const command = process.argv[2] ?? "dev";
-const baseUrl = process.env.RAROLEADS_BASE_URL ?? process.env.APP_BASE_URL;
+const baseUrl = process.env.RAROCLIENTS_BASE_URL ?? process.env.APP_BASE_URL;
 const args = [command];
 
 if (baseUrl) {
@@ -13,7 +13,7 @@ if (baseUrl) {
     const { port } = new URL(baseUrl);
     if (port) args.push("-p", port);
   } catch {
-    console.warn("RAROLEADS_BASE_URL/APP_BASE_URL invalida; usando a porta padrao do Next.");
+    console.warn("RAROCLIENTS_BASE_URL/APP_BASE_URL invalida; usando a porta padrao do Next.");
   }
 }
 

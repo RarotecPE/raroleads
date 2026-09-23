@@ -33,6 +33,7 @@ test("busca o documento autenticado e compartilha nome, MIME e conteúdo", async
   assert.equal(file?.name, "proposta.pdf");
   assert.equal(file?.type, "application/pdf");
   assert.equal(await file?.text(), "conteúdo");
+  assert.equal(shared?.text, "Documento compartilhado pelo Raroclients.");
 });
 
 test("rejeita falha HTTP e arquivo não aceito pelo dispositivo", async () => {

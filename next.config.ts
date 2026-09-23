@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   async redirects() {
-    const baseUrl = process.env.APP_BASE_URL ?? process.env.RAROLEADS_BASE_URL;
+    const baseUrl = process.env.APP_BASE_URL ?? process.env.RAROCLIENTS_BASE_URL;
     if (!baseUrl) return [];
 
     try {

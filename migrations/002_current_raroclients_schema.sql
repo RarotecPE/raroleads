@@ -1,4 +1,4 @@
--- Current RaroLeads schema based on src/db/schema.ts.
+-- Current Raroclients schema based on src/db/schema.ts.
 -- Target database: PostgreSQL.
 -- The app also generates ids in code; the database default below keeps
 -- direct SQL inserts usable.

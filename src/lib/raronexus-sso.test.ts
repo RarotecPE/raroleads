@@ -8,7 +8,7 @@ test("SSO silencioso sem sessao termina sem invalidar o login interativo", async
   const previousBaseUrl = process.env.RARONEXUS_BASE_URL;
   const previousClientId = process.env.RARONEXUS_CLIENT_ID;
   process.env.RARONEXUS_BASE_URL = "http://localhost:3001";
-  process.env.RARONEXUS_CLIENT_ID = "raroleads";
+  process.env.RARONEXUS_CLIENT_ID = "raroclients";
 
   try {
     const silentStart = await start(new NextRequest("http://localhost:3002/api/auth/raronexus/start?mode=silent"));
@@ -32,7 +32,7 @@ test("SSO silencioso sem sessao termina sem invalidar o login interativo", async
     assert.equal(silentCallback.status, 200);
     assert.match(await silentCallback.text(), /"status":"error","mode":"silent"/);
     const clearedCookies = silentCallback.cookies.getAll().map(({ name }) => name);
-    assert.deepEqual(clearedCookies.sort(), ["raroleads_sso_silent_next", "raroleads_sso_silent_state"].sort());
+    assert.deepEqual(clearedCookies.sort(), ["raroclients_sso_silent_next", "raroclients_sso_silent_state"].sort());
 
     const interactiveCallback = await callback(new NextRequest(
       `http://localhost:3002/api/auth/raronexus/callback?error=access_denied&state=${interactiveState}`,
@@ -42,7 +42,7 @@ test("SSO silencioso sem sessao termina sem invalidar o login interativo", async
     assert.match(await interactiveCallback.text(), /"status":"error","mode":"interactive"/);
     assert.deepEqual(
       interactiveCallback.cookies.getAll().map(({ name }) => name).sort(),
-      ["raroleads_sso_next", "raroleads_sso_state"].sort(),
+      ["raroclients_sso_next", "raroclients_sso_state"].sort(),
     );
   } finally {
     if (previousBaseUrl === undefined) delete process.env.RARONEXUS_BASE_URL;

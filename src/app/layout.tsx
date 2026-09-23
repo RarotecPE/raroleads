@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   title: APP.name,
   description: APP.description,
   icons: {
-    icon: [{ url: "/raroleads-favicon-circle.png", type: "image/png" }],
-    shortcut: "/raroleads-favicon-circle.png",
-    apple: [{ url: "/raroleads-favicon-circle.png", type: "image/png" }],
+    icon: [{ url: "/raroclients-favicon-circle.png", type: "image/png" }],
+    shortcut: "/raroclients-favicon-circle.png",
+    apple: [{ url: "/raroclients-favicon-circle.png", type: "image/png" }],
   },
 };
 

@@ -1,12 +1,12 @@
 {
-  "name": "nextjs-postgresql-template",
+  "name": "raroclients",
   "private": true,
   "scripts": {
     "dev": "node scripts/next-with-env-port.mjs dev",
     "build": "next build",
     "start": "node scripts/next-with-env-port.mjs start",
     "db:doctor": "node scripts/db-doctor.mjs",
-    "db:schema": "node scripts/db-apply-sql.mjs migrations/002_current_raroleads_schema.sql migrations/004_add_cliente_nome.sql migrations/005_create_base_responsaveis.sql migrations/006_create_modulo_responsaveis.sql migrations/007_add_documento_upload_metadata.sql migrations/008_add_documento_aditivo_id.sql migrations/009_add_aditivo_nova_data_fim.sql migrations/010_normalize_contrato_situacao.sql migrations/011_add_evento_aditivo_id.sql migrations/012_remove_manual_pendencias.sql migrations/013_add_modulo_habilitacao_email.sql migrations/015_add_base_superior.sql migrations/016_add_base_desabilitacao.sql migrations/017_create_central_propostas.sql migrations/018_add_proposta_base_duplicidade.sql migrations/019_add_proposta_cancelamento_exclusao.sql",
+    "db:schema": "node scripts/db-apply-sql.mjs migrations/002_current_raroclients_schema.sql migrations/004_add_cliente_nome.sql migrations/005_create_base_responsaveis.sql migrations/006_create_modulo_responsaveis.sql migrations/007_add_documento_upload_metadata.sql migrations/008_add_documento_aditivo_id.sql migrations/009_add_aditivo_nova_data_fim.sql migrations/010_normalize_contrato_situacao.sql migrations/011_add_evento_aditivo_id.sql migrations/012_remove_manual_pendencias.sql migrations/013_add_modulo_habilitacao_email.sql migrations/015_add_base_superior.sql migrations/016_add_base_desabilitacao.sql migrations/017_create_central_propostas.sql migrations/018_add_proposta_base_duplicidade.sql migrations/019_add_proposta_cancelamento_exclusao.sql",
     "db:seed": "node scripts/db-apply-sql.mjs migrations/003_seed_data.sql",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

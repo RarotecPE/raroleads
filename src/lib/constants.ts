@@ -1,6 +1,6 @@
 export const APP = {
-  name: "RaroLeads",
-  shortName: "RaroLeads",
+  name: "Raroclients",
+  shortName: "Raroclients",
   description:
     "Gestao administrativa de clientes, bases, modulos, contratos e historico.",
 };

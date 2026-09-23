@@ -34,14 +34,14 @@ interface IntrospectResponse {
 export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 export const SSO_COOKIE_MAX_AGE = 60 * 5;
 
-const DEFAULT_CLIENT_ID = "raroleads";
+const DEFAULT_CLIENT_ID = "raroclients";
 
 export function getRaroNexusConfig(request?: NextRequest) {
   const raronexusBaseUrl = process.env.RARONEXUS_BASE_URL?.replace(/\/+$/, "");
   const clientId = process.env.RARONEXUS_CLIENT_ID ?? DEFAULT_CLIENT_ID;
   const clientSecret = process.env.RARONEXUS_CLIENT_SECRET;
   const appBaseUrl =
-    (process.env.APP_BASE_URL ?? process.env.RAROLEADS_BASE_URL ?? request?.nextUrl.origin)?.replace(/\/+$/, "");
+    (process.env.APP_BASE_URL ?? process.env.RAROCLIENTS_BASE_URL ?? request?.nextUrl.origin)?.replace(/\/+$/, "");
 
   return {
     raronexusBaseUrl,
@@ -51,7 +51,7 @@ export function getRaroNexusConfig(request?: NextRequest) {
     redirectUri: appBaseUrl ? `${appBaseUrl}/api/auth/raronexus/callback` : null,
     cookies: {
       session: `${clientId}_global_session`,
-      localSession: "raroleads_app_session",
+      localSession: "raroclients_app_session",
       state: `${clientId}_sso_state`,
       next: `${clientId}_sso_next`,
       mode: `${clientId}_sso_mode`,

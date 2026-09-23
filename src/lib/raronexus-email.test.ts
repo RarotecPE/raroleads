@@ -10,7 +10,7 @@ const originalEnv = {
 
 beforeEach(() => {
   process.env.RARONEXUS_BASE_URL = "https://nexus.example.com/base/";
-  process.env.RARONEXUS_CLIENT_ID = "raroleads";
+  process.env.RARONEXUS_CLIENT_ID = "raroclients";
   process.env.RARONEXUS_CLIENT_SECRET = "test-secret";
 });
 
@@ -49,7 +49,7 @@ test("envia body HTML de teste para o endpoint de habilitação", async () => {
   assert.equal(capturedInit?.cache, "no-store");
   assert.deepEqual(capturedInit?.headers, {
     "Content-Type": "application/json",
-    "X-RaroNexus-Client-Id": "raroleads",
+    "X-RaroNexus-Client-Id": "raroclients",
     "X-RaroNexus-Client-Secret": "test-secret",
   });
   assert.deepEqual(JSON.parse(String(capturedInit?.body)), payload);
